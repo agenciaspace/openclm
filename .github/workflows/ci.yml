@@ -1,0 +1,27 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.10.4"
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest -q
+      - run: node --check openclm/static/app.js
+      - run: python3 scripts/configure.py
+      - run: docker compose config --quiet
+      - run: docker compose up --build -d --wait
+      - run: curl --fail http://localhost:8000/health
+      - run: docker compose exec -T app python -m openclm.cli seed
+      - run: docker compose down
+        if: always()

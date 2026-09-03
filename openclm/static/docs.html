@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenCLM · API</title>
+    <link rel="icon" href="/static/icon.svg" />
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/docs.js" defer></script>
+  </head>
+  <body>
+    <main class="docs">
+      <a class="brand" href="/"
+        ><img src="/static/icon.svg" alt="" />open<em>clm</em></a
+      >
+      <p class="eyebrow">Documentação para integrações · v0.1</p>
+      <h1>Uma API para todo o ciclo.</h1>
+      <p class="muted">
+        Contratos, perguntas, respostas, versões e aprovações com
+        identificadores estáveis.
+      </p>
+      <div class="notice">
+        Crie a conta inicial no servidor:
+        <code
+          >uv run python -m openclm.cli create-user --email voce@empresa.com
+          --name Admin</code
+        >. Faça login na aplicação e crie uma chave em Configurações. Use
+        <code>Authorization: Bearer SUA_CHAVE</code>. Requisições com cookie
+        exigem <code>X-OpenCLM: 1</code>. Leia o README para instalação.
+      </div>
+      <div class="inline-actions">
+        <a class="button" href="/openapi.json" download="openclm-openapi.json"
+          >↓ OpenAPI 3.1</a
+        ><a class="button" href="/">Abrir aplicação →</a>
+      </div>
+      <p class="notice">
+        Este explorador é servido localmente, sem dependências de CDN. Importe o
+        OpenAPI no cliente da sua preferência para executar chamadas. Listagem
+        de contratos: <code>limit</code>, <code>offset</code>, <code>q</code> e
+        <code>status</code>. Edições e transições exigem a
+        <code>revision</code> recebida na consulta; conflitos retornam 409.
+      </p>
+      <div id="endpoints">Carregando especificação…</div>
+      <h2>Modelos de dados</h2>
+      <div id="schemas"></div>
+    </main>
+  </body>
+</html>

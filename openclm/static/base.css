@@ -1,0 +1,14 @@
+/* System fonts only. No external fonts, analytics, scripts or stylesheets. */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #719754;
+}
+[hidden] {
+  display: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

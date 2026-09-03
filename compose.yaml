@@ -1,0 +1,46 @@
+name: openclm
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://openclm:${POSTGRES_PASSWORD:?Run scripts/configure.py first}@db:5432/openclm
+      OLLAMA_URL: http://ollama:11434
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: openclm
+      POSTGRES_USER: openclm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/configure.py first}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openclm -d openclm"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  ollama:
+    image: ollama/ollama:0.33.2
+    profiles: ["ai"]
+    restart: unless-stopped
+    environment:
+      OLLAMA_NO_CLOUD: "1"
+    volumes:
+      - ollama_data:/root/.ollama
+volumes:
+  postgres_data:
+  ollama_data:
