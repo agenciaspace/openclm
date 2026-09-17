@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     docusign_integration_key: str = ""
     docusign_client_secret: str = ""
     docusign_hmac_secret: str = ""
+    salesforce_enabled: bool = False
+    salesforce_login_url: str = "https://test.salesforce.com"
+    salesforce_client_id: str = ""
+    salesforce_client_secret: str = ""
     token_encryption_key: str = ""
 
     @model_validator(mode="after")
@@ -70,4 +74,35 @@ class Settings(BaseSettings):
             )
         if self.docusign_enabled:
             Fernet(self.token_encryption_key.encode())
+        validate_salesforce_origin(self.salesforce_login_url)
+        if self.salesforce_enabled:
+            if not all(
+                [
+                    self.salesforce_client_id,
+                    self.salesforce_client_secret,
+                    self.token_encryption_key,
+                ]
+            ):
+                raise ValueError("Salesforce requires client ID/secret and TOKEN_ENCRYPTION_KEY")
+            Fernet(self.token_encryption_key.encode())
         return self
+
+
+def validate_salesforce_origin(value):
+    target = urlparse(value)
+    host = target.hostname or ""
+    if (
+        target.scheme != "https"
+        or not (
+            host in {"login.salesforce.com", "test.salesforce.com"}
+            or host.endswith(".my.salesforce.com")
+        )
+        or target.username
+        or target.password
+        or target.port not in {None, 443}
+        or target.path not in {"", "/"}
+        or target.query
+        or target.fragment
+    ):
+        raise ValueError("Invalid Salesforce origin")
+    return value.rstrip("/")

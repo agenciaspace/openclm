@@ -129,3 +129,9 @@ O CI verifica os testes e inicia a imagem Docker com PostgreSQL. Testes de DocuS
 Ainda não inclui editor colaborativo/redline, importação de modelos DOCX, upload de contratos existentes, extração de PDFs, PDF assinado arquivado automaticamente, SSO/MFA, regras condicionais de workflow, filas duráveis, permissões por documento ou multi-organização. Integrações externas dependem da configuração do servidor e da disponibilidade/autorização dos provedores.
 
 English: OpenCLM is an MIT-licensed, self-hosted contract lifecycle management foundation. Contracts, forms, document versions and approval workflows live on your infrastructure. Local Ollama AI and user-authorized DocuSign eSignature are optional.
+
+## Salesforce and live demonstration
+
+Salesforce OAuth + PKCE, opportunity search and audited contract links are available. See [configuration and scope](docs/salesforce.md). DocuSign supports authorized signature dispatch and authenticated status callbacks; see [DocuSign setup](docs/docusign.md).
+
+The LegalOps [live demo](https://openclm.leonn.dev) runs on an isolated installation and requires a demo account. Example templates are labeled `[DEMO]`. External integrations display their actual configuration/connection state; a live demo does not mean external provider credentials are installed.

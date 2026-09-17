@@ -144,3 +144,31 @@ class DocuSignConnection(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     revision: Mapped[int] = mapped_column(Integer, default=1)
     __mapper_args__ = {"version_id_col": revision}
+
+
+class SalesforceState(Base):
+    __tablename__ = "salesforce_states"
+    state_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    session_id: Mapped[str] = mapped_column(ForeignKey("tokens.id", ondelete="CASCADE"))
+    verifier_encrypted: Mapped[str] = mapped_column(Text)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+
+
+class SalesforceConnection(Base):
+    __tablename__ = "salesforce_connections"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    instance_url: Mapped[str] = mapped_column(String(250))
+    access_encrypted: Mapped[str] = mapped_column(Text)
+    refresh_encrypted: Mapped[str] = mapped_column(Text)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    __mapper_args__ = {"version_id_col": revision}
+
+
+class SalesforceLink(Base):
+    __tablename__ = "salesforce_links"
+    contract_id: Mapped[str] = mapped_column(ForeignKey("contracts.id"), primary_key=True)
+    instance_url: Mapped[str] = mapped_column(String(250))
+    opportunity_id: Mapped[str] = mapped_column(String(18))
+    opportunity_name: Mapped[str] = mapped_column(String(200))
+    linked_by: Mapped[str] = mapped_column(ForeignKey("users.id"))

@@ -456,6 +456,7 @@ def capabilities(request: Request, user: Auth):
         "ai_enabled": cfg.ai_enabled,
         "ai_model": cfg.ollama_model if cfg.ai_enabled else None,
         "docusign_enabled": cfg.docusign_enabled,
+        "salesforce_enabled": cfg.salesforce_enabled,
         "telemetry": False,
         "storage": "self-hosted",
         "version": "0.1.0",

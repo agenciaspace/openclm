@@ -15,6 +15,7 @@ from .api import router
 from .config import Settings
 from .db import make_engine, session_factory
 from .oauth import router as oauth_router
+from .salesforce import router as salesforce_router
 
 STATIC = Path(__file__).parent / "static"
 
@@ -149,6 +150,7 @@ def create_app(settings: Settings | None = None):
 
     app.include_router(router)
     app.include_router(oauth_router)
+    app.include_router(salesforce_router)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     app.add_middleware(BodyLimit)
     app.add_middleware(
