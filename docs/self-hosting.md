@@ -80,3 +80,22 @@ Redefinição de senha e desativação invalidam as sessões e chaves de API da 
 `GET /health` verifica conexão com o banco e presença da tabela de migrações. A imagem roda como usuário sem privilégios; o filesystem da aplicação é somente leitura no Compose. O banco e o Ollama usam volumes persistentes.
 
 Monitore espaço em disco, disponibilidade do banco, backups e tempo de resposta das integrações. A IA é executada de forma síncrona com timeout de 120 segundos; não há fila distribuída ou controle de cotas por usuário nesta base. Dimensione o modelo e restrinja concorrência no Ollama conforme seu hardware.
+
+## LegalOps demonstration deployment
+
+The demo at `https://openclm.leonn.dev` runs from `/root/openclm` with SQLite,
+behind a dedicated Cloudflare Tunnel. Services: `openclm-demo.service` and
+`openclm-demo-tunnel.service`. It binds only `127.0.0.1:8787`; the tunnel does
+not modify existing host tunnels or WhatsApp gateways. Both services start on boot.
+
+Demo accounts and their initial passwords are stored only in
+`/root/.local/share/openclm-demo-access.txt` (mode 0600). Server secrets are in
+`/root/openclm/.env` (mode 0600). Do not commit either file or the database.
+Use the administrator and separate reviewer to exercise the approval flow.
+Templates and the initial contract are explicitly labeled as demonstration data.
+
+For an update: back up the SQLite database with SQLite's backup API and keep a
+protected backup of `.env`; pull the reviewed main revision, run `uv sync --frozen`
+and `uv run alembic upgrade head`, then restart only `openclm-demo.service`.
+Use `/health` and an authenticated browser flow to verify the deployed revision.
+No automated host deployment or recurring backup is configured by this setup.
