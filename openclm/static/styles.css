@@ -1,4 +1,4 @@
-@import url("/static/base.css");
+@import url("./base.css");
 :root {
   --bg: #f8f9f6;
   --paper: #fff;
@@ -1129,3 +1129,5 @@ details summary {
 /* A persistent control remains in the content header when the sidebar is hidden. */
 .topbar-start{display:flex;align-items:center;gap:12px;min-width:0}.sidebar-toggle{min-width:44px;min-height:44px;font-size:20px;border:1px solid var(--line);border-radius:10px;flex-shrink:0}.shell.sidebar-collapsed{grid-template-columns:minmax(0,1fr)}.sidebar-collapsed .sidebar{display:none}.sidebar-collapsed .main{grid-column:1}.sidebar-toggle:focus-visible{outline:3px solid var(--green);outline-offset:2px}
 @media(max-width:760px){.topbar-start{gap:6px}.topbar-start .breadcrumb{font-size:11px}.sidebar-toggle{min-width:40px}}
+
+.topbar{position:sticky;top:0;z-index:30;background:var(--bg,#fafbf8)}
