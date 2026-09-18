@@ -1,6 +1,7 @@
 "use strict";
+const BASE_PATH = new URL(document.currentScript.src).pathname.replace(/\/static\/docs\.js$/, "");
 async function docs() {
-  const response = await fetch("/openapi.json");
+  const response = await fetch(`${BASE_PATH}/openapi.json`);
   if (!response.ok) throw new Error("Especificação indisponível.");
   const spec = await response.json();
   const target = document.querySelector("#endpoints");

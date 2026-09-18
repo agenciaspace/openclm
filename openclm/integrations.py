@@ -67,7 +67,7 @@ class DocuSign:
                 ]
             },
             "eventNotification": {
-                "url": self.settings.app_url.rstrip("/") + "/api/v1/webhooks/docusign",
+                "url": self.settings.public_url + "/api/v1/webhooks/docusign",
                 "requireAcknowledgment": "true",
                 "includeHMAC": "true",
                 "integratorManaged": "true",

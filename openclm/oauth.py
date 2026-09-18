@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/v1/integrations/docusign", tags=["DocuSign OAuth
 
 
 def callback_url(cfg):
-    return cfg.app_url.rstrip("/") + "/api/v1/integrations/docusign/callback"
+    return cfg.public_url + "/api/v1/integrations/docusign/callback"
 
 
 def encrypt(cfg, value):
@@ -173,7 +173,7 @@ def callback(
         raise HTTPException(400, "Autorização inválida ou expirada. Inicie a conexão novamente.")
     db.commit()
     if error or not code:
-        return RedirectResponse("/?docusign=cancelled", status_code=303)
+        return RedirectResponse(cfg.base_path + "/?docusign=cancelled", status_code=303)
     try:
         result = exchange_token(
             cfg,
@@ -197,7 +197,7 @@ def callback(
                 or connection.account_id != account["account_id"]
             )
         ):
-            return RedirectResponse("/?docusign=account_mismatch", status_code=303)
+            return RedirectResponse(cfg.base_path + "/?docusign=account_mismatch", status_code=303)
         if not connection:
             connection = DocuSignConnection(user_id=user.id)
             db.add(connection)
@@ -218,8 +218,8 @@ def callback(
         db.commit()
     except (httpx.HTTPError, KeyError, ValueError, IndexError):
         db.rollback()
-        return RedirectResponse("/?docusign=failed", status_code=303)
-    return RedirectResponse("/?docusign=connected", status_code=303)
+        return RedirectResponse(cfg.base_path + "/?docusign=failed", status_code=303)
+    return RedirectResponse(cfg.base_path + "/?docusign=connected", status_code=303)
 
 
 @router.delete("/connection", status_code=204)

@@ -105,7 +105,7 @@ def login(payload: s.Login, request: Request, response: Response, db: DB):
         secure=request.app.state.settings.secure_cookies,
         samesite="lax",
         max_age=request.app.state.settings.session_hours * 3600,
-        path="/",
+        path=request.app.state.settings.base_path + "/",
     )
     return user
 
@@ -119,7 +119,7 @@ def me(user: Auth):
 def logout(request: Request, response: Response, db: DB, user: Auth):
     db.delete(request.state.auth_token)
     db.commit()
-    response.delete_cookie("openclm_session", path="/")
+    response.delete_cookie("openclm_session", path=request.app.state.settings.base_path + "/")
 
 
 @router.get("/users", response_model=list[s.UserOut], tags=["Users"])

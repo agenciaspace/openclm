@@ -1,4 +1,5 @@
 import ipaddress
+import re
 from urllib.parse import urlparse
 
 from cryptography.fernet import Fernet
@@ -11,6 +12,8 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./openclm.db"
     app_url: str = "http://localhost:8000"
+    base_path: str = ""
+    proxy_hostname: str = ""
     secure_cookies: bool = False
     session_hours: int = 12
     ai_enabled: bool = False
@@ -27,8 +30,18 @@ class Settings(BaseSettings):
     salesforce_client_secret: str = ""
     token_encryption_key: str = ""
 
+    @property
+    def public_url(self):
+        return self.app_url.rstrip("/") + self.base_path
+
     @model_validator(mode="after")
     def validate_endpoints(self):
+        if self.base_path and not re.fullmatch(r"/[a-z0-9]+(?:-[a-z0-9]+)*", self.base_path):
+            raise ValueError("BASE_PATH must be empty or a single URL path segment")
+        if self.proxy_hostname and not re.fullmatch(
+            r"[a-z0-9]+(?:[.-][a-z0-9]+)*", self.proxy_hostname
+        ):
+            raise ValueError("PROXY_HOSTNAME must be a hostname")
         app = urlparse(self.app_url)
         if app.scheme not in {"http", "https"} or not app.hostname or app.path not in {"", "/"}:
             raise ValueError("APP_URL must be an HTTP(S) origin without a path")

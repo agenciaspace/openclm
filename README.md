@@ -134,4 +134,10 @@ English: OpenCLM is an MIT-licensed, self-hosted contract lifecycle management f
 
 Salesforce OAuth + PKCE, opportunity search and audited contract links are available. See [configuration and scope](docs/salesforce.md). DocuSign supports authorized signature dispatch and authenticated status callbacks; see [DocuSign setup](docs/docusign.md).
 
-The LegalOps [live demo](https://openclm.leonn.dev) runs on an isolated installation and requires a demo account. Example templates are labeled `[DEMO]`. External integrations display their actual configuration/connection state; a live demo does not mean external provider credentials are installed.
+The LegalOps [live demo](https://legalops.dev/openclm/) runs on an isolated installation and requires a demo account. Example templates are labeled `[DEMO]`. External integrations display their actual configuration/connection state; a live demo does not mean external provider credentials are installed.
+
+### Hosting under a path
+
+Set `APP_URL=https://legalops.dev` and `BASE_PATH=/openclm` to serve the application behind a proxy which removes that prefix. The browser UI, API, downloads, session cookie path, OAuth callback URLs and DocuSign webhook URL use this prefix. Update provider-registered callbacks when changing the public URL.
+
+For the LegalOps deployment, `PROXY_HOSTNAME=openclm.leonn.dev` permits the tunnel origin. The Pages proxy sets `X-OpenCLM-Proxy: legalops.dev`; direct origin navigation redirects to the public URL. This header only controls the canonical redirect, never authentication or permissions. No external provider is connected automatically.

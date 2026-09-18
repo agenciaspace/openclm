@@ -31,7 +31,7 @@ FIELDS = "Id, Name, Account.Name, StageName, Amount, CloseDate"
 
 
 def callback_url(cfg):
-    return cfg.app_url.rstrip("/") + "/api/v1/integrations/salesforce/callback"
+    return cfg.public_url + "/api/v1/integrations/salesforce/callback"
 
 
 def exchange(cfg, data):
@@ -133,7 +133,7 @@ def callback(
         raise HTTPException(400, "Autorização já utilizada.")
     db.commit()
     if error or not code:
-        return RedirectResponse("/?salesforce=cancelled", status_code=303)
+        return RedirectResponse(cfg.base_path + "/?salesforce=cancelled", status_code=303)
     try:
         result = exchange(
             cfg,
@@ -160,8 +160,8 @@ def callback(
         db.commit()
     except (httpx.HTTPError, ValueError, KeyError, TypeError):
         db.rollback()
-        return RedirectResponse("/?salesforce=failed", status_code=303)
-    return RedirectResponse("/?salesforce=connected", status_code=303)
+        return RedirectResponse(cfg.base_path + "/?salesforce=failed", status_code=303)
+    return RedirectResponse(cfg.base_path + "/?salesforce=connected", status_code=303)
 
 
 def query(cfg, db, user_id, soql):

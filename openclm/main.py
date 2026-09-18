@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -66,6 +66,7 @@ def create_app(settings: Settings | None = None):
 
     app = FastAPI(
         title="OpenCLM API",
+        root_path=cfg.base_path,
         version="0.1.0",
         description="Self-hosted contracts, typed questions, documents, approval workflows and local AI. All contract data endpoints require authentication. One organization per installation.",
         docs_url=None,
@@ -79,8 +80,19 @@ def create_app(settings: Settings | None = None):
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
         if (
+            cfg.proxy_hostname
+            and request.url.hostname == cfg.proxy_hostname
+            and request.headers.get("x-openclm-proxy") != urlparse(cfg.app_url).hostname
+        ):
+            path = request.scope["path"]
+            if cfg.base_path and path.startswith(cfg.base_path + "/"):
+                path = path[len(cfg.base_path) :]
+            target = cfg.public_url + path + ("?" + request.url.query if request.url.query else "")
+            return RedirectResponse(target, status_code=308)
+
+        if (
             request.method not in {"GET", "HEAD", "OPTIONS"}
-            and request.url.path != "/api/v1/webhooks/docusign"
+            and request.scope["path"].removeprefix(cfg.base_path) != "/api/v1/webhooks/docusign"
         ):
             origin = request.headers.get("origin")
             if origin and origin != cfg.app_url.rstrip("/"):
@@ -140,13 +152,20 @@ def create_app(settings: Settings | None = None):
             connection.execute(text("SELECT version_num FROM alembic_version"))
         return {"status": "ok", "version": "0.1.0"}
 
+    def html_page(name):
+        content = (STATIC / name).read_text()
+        content = content.replace('href="/', f'href="{cfg.base_path}/').replace(
+            'src="/', f'src="{cfg.base_path}/'
+        )
+        return HTMLResponse(content)
+
     @app.get("/", include_in_schema=False)
     def home():
-        return FileResponse(STATIC / "index.html")
+        return html_page("index.html")
 
     @app.get("/docs", include_in_schema=False)
     def docs():
-        return FileResponse(STATIC / "docs.html")
+        return html_page("docs.html")
 
     app.include_router(router)
     app.include_router(oauth_router)
@@ -156,7 +175,17 @@ def create_app(settings: Settings | None = None):
     app.add_middleware(
         TrustedHostMiddleware,
         allowed_hosts=list(
-            {urlparse(cfg.app_url).hostname, "localhost", "127.0.0.1", "testserver"}
+            {
+                host
+                for host in [
+                    urlparse(cfg.app_url).hostname,
+                    cfg.proxy_hostname,
+                    "localhost",
+                    "127.0.0.1",
+                    "testserver",
+                ]
+                if host
+            }
         ),
     )
     return app
