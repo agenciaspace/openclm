@@ -1,5 +1,8 @@
 import hashlib
+import hmac
+import ipaddress
 import secrets
+from dataclasses import dataclass
 from datetime import timedelta
 
 from argon2 import PasswordHasher
@@ -9,7 +12,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Token, User, now
+from .models import Membership, Organization, Token, User, now
 
 passwords = PasswordHasher()
 dummy_hash = passwords.hash(secrets.token_urlsafe(32))
@@ -29,20 +32,28 @@ def verify_password(encoded: str, password: str):
 
 def get_db(request: Request):
     with request.app.state.sessions() as session:
+        session.info["tenant_required"] = True
         yield session
 
 
-def issue_token(db: Session, user_id: str, kind: str, name: str, duration: timedelta):
+def issue_token(
+    db: Session, user_id: str, kind: str, name: str, duration: timedelta, organization_id=None
+):
     raw = "oclm_" + secrets.token_urlsafe(40)
     token = Token(
-        user_id=user_id, token_hash=digest(raw), kind=kind, name=name, expires_at=now() + duration
+        user_id=user_id,
+        token_hash=digest(raw),
+        kind=kind,
+        name=name,
+        expires_at=now() + duration,
+        organization_id=organization_id or db.info.get("organization_id"),
     )
     db.add(token)
     db.flush()
     return raw, token
 
 
-def current_user(
+def identity_user(
     request: Request,
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
@@ -66,6 +77,52 @@ def current_user(
     return user
 
 
+@dataclass(frozen=True)
+class Principal:
+    id: str
+    email: str
+    name: str
+    role: str
+    active: bool
+    email_verified: bool
+    organization_id: str | None
+    organization_name: str | None
+    is_owner: bool = False
+
+
+def principal(db, user, organization_id):
+    membership = db.get(Membership, (organization_id, user.id)) if organization_id else None
+    organization = (
+        db.get(Organization, organization_id) if membership and membership.active else None
+    )
+    return Principal(
+        id=user.id,
+        email=user.email,
+        name=user.name,
+        active=user.active,
+        email_verified=user.email_verified,
+        role=membership.role if organization else "viewer",
+        organization_id=organization.id if organization else None,
+        organization_name=organization.name if organization else None,
+        is_owner=bool(organization and organization.owner_id == user.id),
+    )
+
+
+def current_user(
+    request: Request, db: Session = Depends(get_db), user: User = Depends(identity_user)
+):
+    result = principal(db, user, request.state.auth_token.organization_id)
+    if not result.organization_id:
+        raise HTTPException(403, "Escolha uma organização da qual você participa.")
+    selected = request.headers.get("x-organization-id")
+    if selected and selected != result.organization_id:
+        raise HTTPException(409, "A organização mudou em outra aba. Atualize a página.")
+    db.info["organization_id"] = result.organization_id
+    db.info["actor_id"] = result.id
+    db.info["actor_role"] = result.role
+    return result
+
+
 def require_roles(*roles):
     def dependency(user: User = Depends(current_user)):
         if user.role not in roles:
@@ -73,3 +130,15 @@ def require_roles(*roles):
         return user
 
     return dependency
+
+
+def client_address(request):
+    """Trust client IP metadata only from the authenticated edge proxy."""
+    secret = request.app.state.settings.proxy_secret
+    supplied = request.headers.get("x-openclm-proxy-key", "")
+    if secret and hmac.compare_digest(secret, supplied):
+        try:
+            return str(ipaddress.ip_address(request.headers.get("x-openclm-client-ip", "")))
+        except ValueError:
+            pass
+    return request.client.host if request.client else "unknown"

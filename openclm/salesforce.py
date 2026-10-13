@@ -247,6 +247,8 @@ class LinkInput(BaseModel):
 
 @router.get("/contracts/{contract_id}")
 def get_link(contract_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    if not db.get(Contract, contract_id):
+        raise HTTPException(404, "Contrato não encontrado.")
     link = db.get(SalesforceLink, contract_id)
     return {
         "link": {

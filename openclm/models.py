@@ -1,10 +1,20 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .db import Base
+from .db import Base, TenantOwned
 
 
 def now():
@@ -24,6 +34,48 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class Organization(Base):
+    __tablename__ = "organizations"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    name: Mapped[str] = mapped_column(String(120))
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    __mapper_args__ = {"version_id_col": revision}
+
+
+class Membership(Base):
+    __tablename__ = "memberships"
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    role: Mapped[str] = mapped_column(String(20))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Invitation(TenantOwned, Base):
+    __tablename__ = "invitations"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    email: Mapped[str] = mapped_column(String(320))
+    role: Mapped[str] = mapped_column(String(20))
+    invited_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class MailOutbox(Base):
+    __tablename__ = "mail_outbox"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    payload_encrypted: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
 class Token(Base):
@@ -34,6 +86,7 @@ class Token(Base):
     kind: Mapped[str] = mapped_column(String(10))
     name: Mapped[str] = mapped_column(String(80), default="session")
     expires_at: Mapped[datetime] = mapped_column(DateTime)
+    organization_id: Mapped[str | None] = mapped_column(ForeignKey("organizations.id"), index=True)
 
 
 class LoginAttempt(Base):
@@ -43,16 +96,23 @@ class LoginAttempt(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
 
 
-class Workflow(Base):
+class Workflow(TenantOwned, Base):
     __tablename__ = "workflows"
+    __table_args__ = (UniqueConstraint("organization_id", "id"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     name: Mapped[str] = mapped_column(String(120))
     steps: Mapped[list] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
-class Template(Base):
+class Template(TenantOwned, Base):
     __tablename__ = "templates"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id"),
+        ForeignKeyConstraint(
+            ["organization_id", "workflow_id"], ["workflows.organization_id", "workflows.id"]
+        ),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     name: Mapped[str] = mapped_column(String(120))
     description: Mapped[str] = mapped_column(Text, default="")
@@ -62,8 +122,17 @@ class Template(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
-class Contract(Base):
+class Contract(TenantOwned, Base):
     __tablename__ = "contracts"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id"),
+        ForeignKeyConstraint(
+            ["organization_id", "template_id"], ["templates.organization_id", "templates.id"]
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "owner_id"], ["memberships.organization_id", "memberships.user_id"]
+        ),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     title: Mapped[str] = mapped_column(String(200))
     counterparty: Mapped[str] = mapped_column(String(200))
@@ -81,9 +150,14 @@ class Contract(Base):
     __mapper_args__ = {"version_id_col": revision}
 
 
-class DocumentVersion(Base):
+class DocumentVersion(TenantOwned, Base):
     __tablename__ = "document_versions"
-    __table_args__ = (UniqueConstraint("contract_id", "version"),)
+    __table_args__ = (
+        UniqueConstraint("contract_id", "version"),
+        ForeignKeyConstraint(
+            ["organization_id", "contract_id"], ["contracts.organization_id", "contracts.id"]
+        ),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     contract_id: Mapped[str] = mapped_column(ForeignKey("contracts.id"), index=True)
     version: Mapped[int] = mapped_column(Integer)
@@ -95,8 +169,16 @@ class DocumentVersion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
-class SignatureRequest(Base):
+class SignatureRequest(TenantOwned, Base):
     __tablename__ = "signature_requests"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "contract_id"], ["contracts.organization_id", "contracts.id"]
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "sender_id"], ["memberships.organization_id", "memberships.user_id"]
+        ),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     contract_id: Mapped[str] = mapped_column(ForeignKey("contracts.id"), unique=True)
     sender_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
@@ -114,8 +196,13 @@ class WebhookEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
-class AuditEvent(Base):
+class AuditEvent(TenantOwned, Base):
     __tablename__ = "audit_events"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "contract_id"], ["contracts.organization_id", "contracts.id"]
+        ),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     actor_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     contract_id: Mapped[str | None] = mapped_column(ForeignKey("contracts.id"), index=True)
@@ -124,7 +211,7 @@ class AuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
 
 
-class OAuthState(Base):
+class OAuthState(TenantOwned, Base):
     __tablename__ = "oauth_states"
     state_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
@@ -132,7 +219,7 @@ class OAuthState(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime)
 
 
-class DocuSignConnection(Base):
+class DocuSignConnection(TenantOwned, Base):
     __tablename__ = "docusign_connections"
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
     provider_user_id: Mapped[str] = mapped_column(String(100))
@@ -146,7 +233,7 @@ class DocuSignConnection(Base):
     __mapper_args__ = {"version_id_col": revision}
 
 
-class SalesforceState(Base):
+class SalesforceState(TenantOwned, Base):
     __tablename__ = "salesforce_states"
     state_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
@@ -155,7 +242,7 @@ class SalesforceState(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime)
 
 
-class SalesforceConnection(Base):
+class SalesforceConnection(TenantOwned, Base):
     __tablename__ = "salesforce_connections"
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
     instance_url: Mapped[str] = mapped_column(String(250))
@@ -165,8 +252,13 @@ class SalesforceConnection(Base):
     __mapper_args__ = {"version_id_col": revision}
 
 
-class SalesforceLink(Base):
+class SalesforceLink(TenantOwned, Base):
     __tablename__ = "salesforce_links"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "contract_id"], ["contracts.organization_id", "contracts.id"]
+        ),
+    )
     contract_id: Mapped[str] = mapped_column(ForeignKey("contracts.id"), primary_key=True)
     instance_url: Mapped[str] = mapped_column(String(250))
     opportunity_id: Mapped[str] = mapped_column(String(18))

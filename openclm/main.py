@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -11,9 +12,11 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm.exc import StaleDataError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from .accounts import router as accounts_router
 from .api import router
 from .config import Settings
 from .db import make_engine, session_factory
+from .mail import outbox_loop
 from .oauth import router as oauth_router
 from .salesforce import router as salesforce_router
 
@@ -61,14 +64,21 @@ def create_app(settings: Settings | None = None):
 
     @asynccontextmanager
     async def lifespan(app):
-        yield
-        engine.dispose()
+        task = asyncio.create_task(outbox_loop(app)) if cfg.mail_transport != "disabled" else None
+        try:
+            yield
+        finally:
+            if task:
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+            engine.dispose()
 
     app = FastAPI(
         title="OpenCLM API",
         root_path=cfg.base_path,
         version="0.1.0",
-        description="Self-hosted contracts, typed questions, documents, approval workflows and local AI. All contract data endpoints require authentication. One organization per installation.",
+        description="Contracts, forms and approval workflows with organization-scoped membership and permissions. All contract data endpoints require authentication and an active organization.",
         docs_url=None,
         redoc_url=None,
         lifespan=lifespan,
@@ -168,6 +178,7 @@ def create_app(settings: Settings | None = None):
         return html_page("docs.html")
 
     app.include_router(router)
+    app.include_router(accounts_router)
     app.include_router(oauth_router)
     app.include_router(salesforce_router)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")

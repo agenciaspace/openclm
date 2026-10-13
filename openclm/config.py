@@ -3,7 +3,7 @@ import re
 from urllib.parse import urlparse
 
 from cryptography.fernet import Fernet
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,8 +14,24 @@ class Settings(BaseSettings):
     app_url: str = "http://localhost:8000"
     base_path: str = ""
     proxy_hostname: str = ""
+    proxy_secret: str = ""
     secure_cookies: bool = False
     session_hours: int = 12
+    public_signup_enabled: bool = True
+    max_organizations_per_user: int = Field(default=10, ge=1)
+    max_members_per_organization: int = Field(default=100, ge=1)
+    max_contracts_per_organization: int = Field(default=5000, ge=1)
+    mail_transport: str = "disabled"
+    mail_from: str = "OpenCLM <contato@legalops.dev>"
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_starttls: bool = True
+    cloudflare_account_id: str = ""
+    cloudflare_email_token: str = ""
+    mail_relay_url: str = ""
+    mail_relay_secret: str = ""
     ai_enabled: bool = False
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "qwen3:8b"
@@ -36,6 +52,24 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_endpoints(self):
+        if self.mail_transport not in {"disabled", "smtp", "cloudflare", "relay"}:
+            raise ValueError("Unsupported mail transport")
+        if self.mail_transport != "disabled" and not self.token_encryption_key:
+            raise ValueError("Mail queue requires TOKEN_ENCRYPTION_KEY")
+        if self.mail_transport != "disabled":
+            Fernet(self.token_encryption_key.encode())
+        if self.mail_transport == "smtp" and not self.smtp_starttls:
+            raise ValueError("SMTP requires STARTTLS for account links")
+        if self.mail_transport == "smtp" and not self.smtp_host:
+            raise ValueError("SMTP_HOST is required")
+        if self.mail_transport == "relay" and (
+            not self.mail_relay_secret or not self.mail_relay_url.startswith("https://")
+        ):
+            raise ValueError("Mail relay requires HTTPS and a signing secret")
+        if self.mail_transport == "cloudflare" and not (
+            self.cloudflare_account_id and self.cloudflare_email_token
+        ):
+            raise ValueError("Cloudflare email credentials are required")
         if self.base_path and not re.fullmatch(r"/[a-z0-9]+(?:-[a-z0-9]+)*", self.base_path):
             raise ValueError("BASE_PATH must be empty or a single URL path segment")
         if self.proxy_hostname and not re.fullmatch(

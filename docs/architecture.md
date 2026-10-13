@@ -20,7 +20,10 @@ Nenhum componente do OpenCLM exige um serviço operado pelo mantenedor do projet
 
 | Entidade | Responsabilidade |
 | --- | --- |
-| User | Identidade local e perfil de acesso |
+| User | Identidade global, senha e verificação de e-mail |
+| Organization / Membership | Organização, proprietário e perfil por organização |
+| Invitation | Convite com destinatário, perfil e validade |
+| MailOutbox | Mensagem criptografada, lease de envio e retentativas |
 | Token | Hash de sessão/chave de API, titular e expiração |
 | Workflow | Definição imutável de etapas sequenciais |
 | Template | Texto, perguntas tipadas e workflow associado |
@@ -85,3 +88,9 @@ tests/            testes de domínio, acesso, OAuth, webhooks e migrações
 6. Upload, busca no conteúdo, extração e perguntas com referência aos trechos de documentos longos por IA local.
 
 Antes de escalar para múltiplas réplicas, separar a execução de migrações do startup e adicionar controles distribuídos de abuso, filas e testes de carga. Esta base inicia um processo de aplicação por container.
+
+## Isolamento
+
+TenantSession restringe leituras e escritas ao escopo autenticado, inclusive get, updates e deletes. Constraints compostas bloqueiam referências entre organizações. Sessões administrativas são globais para CLI/migrações; não devem ser usadas por novas rotas. Papéis pertencem à associação. Chaves de API são fixas na organização. Locks serializam cotas e alterações de propriedade/permissões, revalidando o ator. Testes cobrem SQLite e PostgreSQL. OAuth permanece desabilitado na instalação pública até homologação.
+
+O filtro de tenant cobre consultas ORM, não SQL textual/Core. Rotas não devem executar SQL sem escopo explícito; sessões globais são reservadas à manutenção. Conexões OAuth ainda permitem uma organização por identidade/provedor; ativação em múltiplas organizações depende da próxima homologação.

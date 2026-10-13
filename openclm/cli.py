@@ -5,8 +5,8 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 from .config import Settings
-from .db import make_engine, session_factory
-from .models import AuditEvent, Token, User
+from .db import LEGACY_ORGANIZATION_ID, make_engine, session_factory
+from .models import AuditEvent, Membership, Organization, Token, User
 from .schemas import UserCreate
 from .security import passwords
 from .seed import seed_templates
@@ -21,7 +21,9 @@ def main():
     create.add_argument(
         "--role", choices=["admin", "editor", "reviewer", "viewer"], default="admin"
     )
-    commands.add_parser("seed")
+    create.add_argument("--organization-id", default=LEGACY_ORGANIZATION_ID)
+    seed = commands.add_parser("seed")
+    seed.add_argument("--organization-id", default=LEGACY_ORGANIZATION_ID)
     disable = commands.add_parser("disable-user")
     disable.add_argument("--email", required=True)
     reset = commands.add_parser("reset-password")
@@ -30,6 +32,12 @@ def main():
     engine = make_engine(Settings().database_url)
     with session_factory(engine)() as db:
         if args.command == "seed":
+            if args.organization_id != LEGACY_ORGANIZATION_ID and not db.get(
+                Organization, args.organization_id
+            ):
+                parser.error("Organização não encontrada.")
+            if db.get(Organization, args.organization_id):
+                db.info.update(organization_id=args.organization_id, tenant_required=True)
             print(
                 "Modelos demonstrativos criados."
                 if seed_templates(db)
@@ -40,16 +48,8 @@ def main():
         if args.command == "disable-user":
             if not user:
                 parser.error("Usuário não encontrado.")
-            if (
-                user.role == "admin"
-                and len(
-                    db.scalars(
-                        select(User).where(User.role == "admin", User.active.is_(True))
-                    ).all()
-                )
-                <= 1
-            ):
-                parser.error("Crie outro administrador antes de desativar o último.")
+            if db.scalar(select(Organization.id).where(Organization.owner_id == user.id)):
+                parser.error("Transfira a propriedade das organizações antes de desativar a conta.")
             user.active = False
         else:
             if args.command == "create-user" and user:
@@ -77,12 +77,30 @@ def main():
                 )
                 db.add(user)
                 db.flush()
+                organization = db.get(Organization, args.organization_id)
+                if not organization:
+                    if args.organization_id != LEGACY_ORGANIZATION_ID or args.role != "admin":
+                        parser.error("Crie a organização com um administrador primeiro.")
+                    organization = Organization(
+                        id=LEGACY_ORGANIZATION_ID, name="Minha organização", owner_id=user.id
+                    )
+                    db.add(organization)
+                    db.flush()
+                db.add(Membership(organization_id=organization.id, user_id=user.id, role=args.role))
             else:
                 user.password_hash = passwords.hash(password)
         if args.command != "create-user":
             for token in db.scalars(select(Token).where(Token.user_id == user.id)):
                 db.delete(token)
-        db.add(AuditEvent(action="admin.cli." + args.command, details={"user_id": user.id}))
+        db.flush()
+        for membership in db.scalars(select(Membership).where(Membership.user_id == user.id)):
+            db.add(
+                AuditEvent(
+                    organization_id=membership.organization_id,
+                    action="admin.cli." + args.command,
+                    details={"user_id": user.id},
+                )
+            )
         db.commit()
         print("Operação concluída.")
     engine.dispose()

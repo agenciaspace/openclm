@@ -1,0 +1,205 @@
+{
+  "date": "2026-10-13",
+  "application_revision": "3189308a2f8fbcebf721fb41f7a03b89383605d7",
+  "api_tests": {
+    "passed": 70,
+    "warnings": 2,
+    "environment": "disposable SQLite"
+  },
+  "browser_tests": {
+    "passed": 20,
+    "projects": [
+      "chromium-desktop",
+      "chromium-phone",
+      "webkit-tablet",
+      "firefox-desktop"
+    ],
+    "environment": "disposable SQLite"
+  },
+  "postgres": {
+    "engine": "PostgreSQL 17",
+    "synthetic_data_only": true,
+    "checks": [
+      "clean_migration_and_schema_drift_check",
+      "create_submit_independent_approval_and_download",
+      "pg_dump_restore_login_approved_status_document_sha256_and_audit",
+      "disposable_database_downgrade_and_upgrade"
+    ],
+    "status": "passed"
+  },
+  "live_readonly": [
+    {
+      "path": "/",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "cache_control": "no-store"
+    },
+    {
+      "path": "/health",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "cache_control": "no-store"
+    },
+    {
+      "path": "/api/v1/contracts",
+      "status": 401,
+      "expected": 401,
+      "passed": true,
+      "cache_control": "no-store"
+    },
+    {
+      "path": "/api/v1/users",
+      "status": 401,
+      "expected": 401,
+      "passed": true,
+      "cache_control": "no-store"
+    },
+    {
+      "path": "/api/v1/templates",
+      "status": 401,
+      "expected": 401,
+      "passed": true,
+      "cache_control": "no-store"
+    }
+  ],
+  "python_dependencies": {
+    "checked": 39,
+    "known_vulnerabilities": 0,
+    "skipped": 0
+  },
+  "capability_inventory": {
+    "generated_at": "2026-10-13T11:00:57.923480+00:00",
+    "revision": "3189308a2f8fbcebf721fb41f7a03b89383605d7",
+    "scope": "Disposable SQLite fixture; no writes or provider requests to production",
+    "release_ready": false,
+    "checks": [
+      {
+        "id": "public_signup",
+        "status": "blocked",
+        "evidence": {
+          "matching_routes": [],
+          "method": "OpenAPI inventory"
+        }
+      },
+      {
+        "id": "organizations",
+        "status": "blocked",
+        "evidence": {
+          "matching_routes": [],
+          "method": "OpenAPI inventory"
+        }
+      },
+      {
+        "id": "membership_invites",
+        "status": "blocked",
+        "evidence": {
+          "matching_routes": [],
+          "method": "OpenAPI inventory"
+        }
+      },
+      {
+        "id": "password_recovery",
+        "status": "blocked",
+        "evidence": {
+          "matching_routes": [],
+          "method": "OpenAPI inventory"
+        }
+      },
+      {
+        "id": "email_verification",
+        "status": "blocked",
+        "evidence": {
+          "matching_routes": [],
+          "method": "OpenAPI inventory"
+        }
+      },
+      {
+        "id": "existing_user_creation_requires_admin",
+        "status": "passed",
+        "evidence": {
+          "anonymous_post_users": 401
+        }
+      },
+      {
+        "id": "shared_installation_visibility",
+        "status": "blocked",
+        "evidence": {
+          "viewer_reading_admin_contract": {
+            "/contracts/{id}": 200,
+            "/contracts/{id}/answers": 200,
+            "/contracts/{id}/versions": 200,
+            "/contracts/{id}/document?format=txt": 200,
+            "/audit?contract_id={id}": 200
+          },
+          "interpretation": "Expected in the current single-organization model; cannot host unrelated organizations safely without tenancy."
+        }
+      },
+      {
+        "id": "tenant_schema",
+        "status": "blocked",
+        "evidence": {
+          "users": [],
+          "workflows": [],
+          "templates": [],
+          "contracts": [],
+          "docusign_connections": []
+        }
+      },
+      {
+        "id": "membership_role_lifecycle",
+        "status": "blocked",
+        "evidence": {
+          "user_management_routes": {
+            "/api/v1/users": [
+              "get",
+              "post"
+            ]
+          },
+          "cli_reset_and_disable_exist": true
+        }
+      },
+      {
+        "id": "docusign_real_roundtrip",
+        "status": "needs_validation",
+        "evidence": {
+          "oauth_and_signature_routes": [
+            "/api/v1/contracts/{contract_id}/signature",
+            "/api/v1/contracts/{contract_id}/signature/reconcile",
+            "/api/v1/webhooks/docusign",
+            "/api/v1/integrations/docusign/status",
+            "/api/v1/integrations/docusign/connect",
+            "/api/v1/integrations/docusign/connection"
+          ],
+          "note": "Mocked tests cannot establish live account eligibility, OAuth, sending, completion or webhook delivery."
+        }
+      },
+      {
+        "id": "signed_document_archive",
+        "status": "blocked",
+        "evidence": {
+          "format_schema": {
+            "type": "string",
+            "pattern": "^(docx|txt)$",
+            "default": "docx",
+            "title": "Format"
+          },
+          "note": "Document download currently offers generated DOCX/TXT; signed PDF and completion certificate require provider validation and private storage."
+        }
+      }
+    ],
+    "additional_gates": [
+      "Cross-organization E2E including guessed IDs, search, downloads, tokens and callbacks",
+      "PostgreSQL migration, restore, load and operational monitoring",
+      "Real browser onboarding and mobile accessibility",
+      "Free-tier quotas, abuse controls and privacy/retention process"
+    ]
+  },
+  "limitations": [
+    "No production data migration",
+    "No real DocuSign or email delivery",
+    "No load test",
+    "No physical-device or full accessibility audit"
+  ]
+}

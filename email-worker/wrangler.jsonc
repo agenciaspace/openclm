@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "openclm-mail",
+  "main": "worker.mjs",
+  "account_id": "3d40d7797b3fd6d1cd2644eefea9e907",
+  "compatibility_date": "2026-10-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "send_email": [{ "name": "EMAIL" }],
+  "vars": { "MAIL_FROM_ADDRESS": "contato@legalops.dev" },
+  "observability": { "enabled": true, "head_sampling_rate": 0.1 }
+}

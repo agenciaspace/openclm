@@ -1,4 +1,5 @@
 .venv/
+.venv
 __pycache__/
 .pytest_cache/
 .ruff_cache/
@@ -14,3 +15,10 @@ dist/
 *.egg-info/
 .DS_Store
 artifacts/
+node_modules/
+node_modules
+test-results/
+playwright-report/
+.wrangler/
+worker-configuration.d.ts
+.dev.vars

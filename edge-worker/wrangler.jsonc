@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "legalops-open-tools",
+  "main": "worker.mjs",
+  "account_id": "3d40d7797b3fd6d1cd2644eefea9e907",
+  "compatibility_date": "2026-10-13",
+  "workers_dev": false,
+  "routes": [
+    {"pattern":"legalops.dev/openclm*","zone_name":"legalops.dev"},
+    {"pattern":"legalops.dev/openintake*","zone_name":"legalops.dev"}
+  ],
+  "observability": {"enabled":true,"head_sampling_rate":0.1}
+}

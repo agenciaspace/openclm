@@ -66,6 +66,10 @@ class UserOut(Output):
     name: str
     role: Role
     active: bool
+    email_verified: bool = False
+    organization_id: str | None = None
+    organization_name: str | None = None
+    is_owner: bool = False
 
 
 class Question(Input):
