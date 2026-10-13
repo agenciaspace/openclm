@@ -1147,3 +1147,5 @@ details summary {
 @media(max-width:900px){.intake-detail{grid-template-columns:1fr}.intake-triage{order:-1}.intake-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:540px){.intake-service-grid{grid-template-columns:1fr}.intake-row{align-items:start;flex-direction:column;gap:12px}.intake-row>span:last-child{text-align:left;flex-shrink:1}.intake-toolbar form{min-width:0;width:100%;flex-basis:100%}.intake-metrics .panel{padding:14px}.intake-summary{font-size:14px}}
 
 .sidebar .brand{font-size:26px;letter-spacing:-1px;gap:8px}.sidebar .brand img{width:30px;height:30px}
+
+.intake-check{flex-direction:row!important}

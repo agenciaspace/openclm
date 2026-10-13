@@ -7,7 +7,7 @@ Entrada: https://legalops.dev/openintake (abre a aplicação compartilhada em `/
 - Catálogo por organização: Contratos/NDA, Privacidade/Dados, Pessoas/Trabalho e Consulta Jurídica. Administradores podem criar, editar e pausar serviços, montar perguntas tipadas, escolher um responsável padrão e configurar o prazo em horas corridas.
 - Solicitação guiada em três passos: serviço, informações e conferência. Validação no servidor, protocolo único e proteção contra reenvio duplicado. O pedido preserva a versão do formulário preenchido.
 - Fila pesquisável com status, prioridade, área, responsável, prazo e indicadores. O prazo solicitado pelo negócio é apresentado separadamente do prazo de atendimento. A distribuição usa a configuração do serviço; se o responsável perdeu acesso, o pedido vai para a fila sem responsável.
-- Histórico, mensagens, resposta final, notas internas do jurídico e anexos autenticados. Um pedido aguardando informações volta à triagem quando o solicitante responde. Orientações aprovadas podem ser publicadas pela própria equipe; não há conteúdo jurídico inventado ou respostas automáticas apresentadas como parecer.
+- Histórico, mensagens, resposta final, notas internas do jurídico e anexos autenticados. Um pedido aguardando informações ou já concluído volta à triagem quando o solicitante responde. Orientações aprovadas podem ser publicadas pela própria equipe; não há conteúdo jurídico inventado ou respostas automáticas apresentadas como parecer.
 - Vínculo com contratos da mesma organização no OpenCLM e API autenticada para integrações próprias.
 
 ## Perfis e privacidade
@@ -30,4 +30,4 @@ Esta é a primeira versão funcional, não uma equivalência completa com plataf
 
 ## Verificação e operação
 
-`tests/test_intake.py` cobre privacidade entre solicitantes e organizações, notas internas, distribuição, prazos, revisão concorrente, conclusão, anexos, publicação de orientações e vínculo contratual. A suíte roda em SQLite e PostgreSQL. `e2e/intake.spec.js` percorre solicitação, upload, atendimento e resposta em Chrome, Firefox, celular e iPad WebKit. Banco/anexos entram no mesmo backup PostgreSQL privado do OpenCLM.
+`tests/test_intake.py` cobre privacidade entre solicitantes e organizações, notas internas, distribuição, prazos, revisão concorrente, conclusão, anexos, publicação de orientações e vínculo contratual. A suíte roda em SQLite e PostgreSQL. `e2e/intake.spec.js` percorre solicitação, upload, atendimento e resposta em Chrome, Firefox, celular e simulação de iPad em WebKit. Banco/anexos entram no mesmo backup PostgreSQL privado do OpenCLM.

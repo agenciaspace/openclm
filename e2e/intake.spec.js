@@ -47,6 +47,9 @@ test('request, private attachment, legal triage, internal note and requester ans
     await expect(page.locator('#modal')).toContainText('Approved process confirmed.');
     await expect(page.locator('#modal')).not.toContainText('Internal review only');
     expect(await page.locator('#modal').evaluate(e=>e.scrollWidth-e.clientWidth)).toBeLessThanOrEqual(1);
+    await page.locator('#intake-message [name=body]').fill('Please consider this additional context.');
+    await page.locator('#intake-message button[type=submit]').click();
+    await expect(page.locator('.intake-meta')).toContainText('Na triagem');
     await page.screenshot({path:`artifacts/intake-${info.project.name}.png`,fullPage:true});
   }finally{await context.close();}
   expect(errors).toEqual([]);

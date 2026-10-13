@@ -1,4 +1,4 @@
-const { defineConfig } = require('@playwright/test');
+const { defineConfig, devices } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './e2e',
@@ -9,7 +9,7 @@ module.exports = defineConfig({
   projects: [
     { name: 'chromium-desktop', use: { browserName: 'chromium', viewport: { width: 1440, height: 900 } } },
     { name: 'chromium-phone', use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
-    { name: 'webkit-tablet', use: { browserName: 'webkit', viewport: { width: 820, height: 1180 }, isMobile: true, hasTouch: true } },
+    { name: 'webkit-tablet', use: { ...devices['iPad Pro 11'], browserName: 'webkit', viewport: { width: 820, height: 1180 }, isMobile: true, hasTouch: true } },
     { name: 'firefox-desktop', use: { browserName: 'firefox', viewport: { width: 1280, height: 800 } } },
   ],
   webServer: {

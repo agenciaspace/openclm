@@ -62,7 +62,7 @@ def staff(db, organization_id, user_id):
 
 
 def request_query(user):
-    stmt = select(IntakeRequest)
+    stmt = select(IntakeRequest).where(IntakeRequest.organization_id == user.organization_id)
     return stmt if legal(user) else stmt.where(IntakeRequest.requester_id == user.id)
 
 
@@ -96,7 +96,7 @@ def question(key, label, kind="text", required=True):
 
 def seed_services(db):
     if db.scalar(select(IntakeService.id).limit(1)):
-        return
+        return False
     definitions = [
         (
             "Contratos e NDA",
@@ -136,6 +136,7 @@ def seed_services(db):
             )
         )
     db.flush()
+    return True
 
 
 class ServiceInput(Input):
@@ -444,8 +445,14 @@ def message(request_id: str, payload: MessageInput, db: DB, user: Auth):
         raise HTTPException(409, "Limite de mensagens da solicitação atingido.")
     msg = IntakeMessage(request_id=item.id, author_id=user.id, **payload.model_dump())
     db.add(msg)
-    if item.requester_id == user.id and item.status == "waiting" and not payload.internal:
+    if (
+        item.requester_id == user.id
+        and item.status in {"waiting", "resolved"}
+        and not payload.internal
+    ):
         item.status = "new"
+        item.resolved_at = None
+        item.resolution = ""
     item.updated_at = now()
     audit(db, user, "intake.message_added", request_id=item.id, internal=payload.internal)
     db.commit()

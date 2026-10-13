@@ -39,9 +39,9 @@ def main():
             if db.get(Organization, args.organization_id):
                 db.info.update(organization_id=args.organization_id, tenant_required=True)
             print(
-                "Modelos demonstrativos criados."
+                "Modelos e serviços preparados."
                 if seed_templates(db)
-                else "Modelos já existentes. Nenhuma alteração."
+                else "Modelos e serviços já existentes. Nenhuma alteração."
             )
             return
         user = db.scalar(select(User).where(User.email == args.email.lower()))

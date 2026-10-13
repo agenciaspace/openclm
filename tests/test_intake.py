@@ -143,6 +143,13 @@ def test_triage_permissions_stale_revision_and_resolution(client, app):
     assert client.patch(url, json=body).status_code == 200
     login(client, "viewer")
     assert client.get(url).json()["resolution"] == "Reviewed and answered."
+    assert client.post(url + "/messages", json={"body": "I need a follow-up."}).status_code == 201
+    reopened = client.get(url).json()
+    assert (
+        reopened["status"] == "new"
+        and reopened["resolved_at"] is None
+        and reopened["resolution"] == ""
+    )
 
 
 def test_attachment_download_private_and_bounded(client, app):
@@ -268,3 +275,34 @@ def test_removing_legal_assignment_returns_open_work_to_triage(client):
         ]
         is None
     )
+
+
+def test_legal_metrics_and_totals_exclude_other_organizations(client, app):
+    login(client)
+    assert submit(client).status_code == 201
+    with browser(app) as other:
+        signup(other, "separate-metrics@example.com")
+        for _ in range(2):
+            assert submit(other).status_code == 201
+        assert other.get("/api/v1/intake/requests").json()["total"] == 2
+        assert other.get("/api/v1/intake/metrics").json()["total"] == 2
+    assert client.get("/api/v1/intake/requests").json()["total"] == 1
+    assert client.get("/api/v1/intake/metrics").json()["total"] == 1
+
+
+def test_existing_templates_can_seed_missing_intake_catalog(client, app):
+    from sqlalchemy import delete, select
+
+    from openclm.db import LEGACY_ORGANIZATION_ID
+    from openclm.models import IntakeService, Template
+    from openclm.seed import seed_templates
+
+    with app.state.sessions() as db:
+        db.info.update(organization_id=LEGACY_ORGANIZATION_ID, tenant_required=True)
+        existing_ids = list(db.scalars(select(Template.id)))
+        db.execute(delete(IntakeService))
+        db.commit()
+        assert seed_templates(db)
+        assert len(db.scalars(select(IntakeService)).all()) == 4
+        assert list(db.scalars(select(Template.id))) == existing_ids
+        assert not seed_templates(db)
