@@ -92,3 +92,5 @@ Antes de escalar para múltiplas réplicas, separar a execução de migrações 
 ## Isolamento
 
 TenantSession restringe leituras e escritas ao escopo autenticado, inclusive get, updates e deletes. Constraints compostas bloqueiam referências entre organizações. Sessões administrativas são globais para CLI/migrações; não devem ser usadas por novas rotas. Papéis pertencem à associação. Chaves de API são fixas na organização. Locks serializam cotas e alterações de propriedade/permissões, revalidando o ator. Testes cobrem SQLite e PostgreSQL. OAuth permanece desabilitado na instalação pública até homologação.
+
+O filtro de tenant cobre consultas ORM, não SQL textual/Core. Rotas não devem executar SQL sem escopo explícito; sessões globais são reservadas à manutenção. Conexões OAuth ainda permitem uma organização por identidade/provedor; ativação em múltiplas organizações depende da próxima homologação.

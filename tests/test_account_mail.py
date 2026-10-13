@@ -65,7 +65,7 @@ def test_mail_failure_retries_without_exposing_token_or_recipient(client, app, m
     signup(client)
 
     def fail(cfg, message):
-        raise RuntimeError("private delivery contents " + message["text"])
+        raise RuntimeError("private delivery contents " + message["to"] + message["text"])
 
     monkeypatch.setattr("openclm.mail.deliver", fail)
     drain_outbox(app)
@@ -73,3 +73,17 @@ def test_mail_failure_retries_without_exposing_token_or_recipient(client, app, m
         item = db.scalar(select(MailOutbox))
         assert item.status == "pending" and item.attempts == 1
     assert "#verify=" not in caplog.text and "new@example.com" not in caplog.text
+
+    from openclm.models import now
+
+    with app.state.sessions() as db:
+        item = db.scalar(select(MailOutbox))
+        item.next_attempt_at = now()
+        db.commit()
+    delivered = []
+    monkeypatch.setattr("openclm.mail.deliver", lambda cfg, message: delivered.append(message))
+    drain_outbox(app)
+    with app.state.sessions() as db:
+        item = db.scalar(select(MailOutbox))
+        assert item.status == "sent" and item.attempts == 2 and item.payload_encrypted == ""
+    assert len(delivered) == 1

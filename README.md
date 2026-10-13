@@ -38,7 +38,7 @@ docker compose exec app python -m openclm.cli seed
 
 Abra **http://localhost:8000**. A API é apresentada em **http://localhost:8000/docs**; o arquivo OpenAPI está em `/openapi.json`. Todos os recursos dessa documentação são servidos localmente, sem CDN.
 
-Convide um revisor em **Configurações → Equipe**, ou pelo mesmo comando com `--role reviewer`. O autor de um contrato não pode aprová-lo, inclusive quando administrador.
+Convide um revisor em **Configurações → Equipe**, ou provisione uma conta local com o comando CLI e `--role reviewer`. O autor de um contrato não pode aprová-lo, inclusive quando administrador.
 
 O Compose publica somente a aplicação, no loopback da máquina. Banco e Ollama não possuem portas públicas. Contratos, respostas, versões e tokens criptografados ficam no volume `postgres_data`. **Não execute `docker compose down -v` se quiser preservar os dados.**
 

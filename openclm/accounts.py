@@ -24,6 +24,7 @@ from .models import (
 )
 from .schemas import Input, Role
 from .security import (
+    client_address,
     current_user,
     digest,
     get_db,
@@ -93,7 +94,8 @@ class TransferOwner(Input):
 
 
 def rate_limit(db, request, action, limit=10, seconds=3600, identity=""):
-    actor = identity or (request.client.host if request.client else "unknown")
+    actor = identity or client_address(request)
+    db.execute(delete(LoginAttempt).where(LoginAttempt.created_at < now() - timedelta(days=7)))
     key = digest(f"{action}:{actor}")
     count = db.scalar(
         select(func.count())
@@ -375,7 +377,7 @@ def activate_organization(organization_id: str, request: Request, db: DB, user: 
 
 @router.patch("/organizations/current")
 def rename_organization(payload: OrganizationInput, db: DB, user: Admin):
-    org = db.get(Organization, user.organization_id)
+    org = lock_organization(db, user.organization_id)
     org.name = payload.name
     audit(db, user.id, "organization.renamed")
     db.commit()
@@ -535,6 +537,7 @@ def invitations(db: DB, user: Admin):
 
 @router.delete("/organizations/current/invitations/{invitation_id}", status_code=204)
 def revoke_invitation(invitation_id: str, db: DB, user: Admin):
+    lock_organization(db, user.organization_id)
     item = db.get(Invitation, invitation_id)
     if not item:
         raise HTTPException(404, "Convite não encontrado.")

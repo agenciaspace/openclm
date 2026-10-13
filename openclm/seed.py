@@ -10,6 +10,12 @@ def seed_templates(db, *, commit=True):
 
     if not db.info.get("organization_id"):
         if not db.get(Organization, LEGACY_ORGANIZATION_ID):
+            if db.scalar(select(Organization.id).limit(1)) or db.scalar(
+                select(Membership.user_id).limit(1)
+            ):
+                raise ValueError(
+                    "Specify an existing organization; legacy bootstrap cannot join isolated accounts"
+                )
             users = db.scalars(select(User).order_by(User.created_at, User.id)).all()
             if not users:
                 return False

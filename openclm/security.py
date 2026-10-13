@@ -1,4 +1,6 @@
 import hashlib
+import hmac
+import ipaddress
 import secrets
 from dataclasses import dataclass
 from datetime import timedelta
@@ -128,3 +130,15 @@ def require_roles(*roles):
         return user
 
     return dependency
+
+
+def client_address(request):
+    """Trust client IP metadata only from the authenticated edge proxy."""
+    secret = request.app.state.settings.proxy_secret
+    supplied = request.headers.get("x-openclm-proxy-key", "")
+    if secret and hmac.compare_digest(secret, supplied):
+        try:
+            return str(ipaddress.ip_address(request.headers.get("x-openclm-client-ip", "")))
+        except ValueError:
+            pass
+    return request.client.host if request.client else "unknown"

@@ -31,8 +31,26 @@ class TenantSession(Session):
         if self.info.get("tenant_required") and issubclass(entity, TenantOwned):
             columns = inspect(entity).primary_key
             values = ident if isinstance(ident, tuple) else (ident,)
+            if isinstance(ident, dict):
+                values = tuple(ident[c.key] for c in columns)
+            statement = select(entity).where(
+                *(c == v for c, v in zip(columns, values, strict=True))
+            )
+            if kwargs.get("options"):
+                statement = statement.options(*kwargs["options"])
+            execution = dict(kwargs.get("execution_options") or {})
+            if kwargs.get("populate_existing"):
+                execution["populate_existing"] = True
+            if kwargs.get("identity_token") is not None:
+                execution["identity_token"] = kwargs["identity_token"]
+            locking = kwargs.get("with_for_update")
+            if locking is not None and locking is not False:
+                statement = statement.with_for_update(
+                    **(locking if isinstance(locking, dict) else {})
+                )
             return self.scalar(
-                select(entity).where(*(c == v for c, v in zip(columns, values, strict=True)))
+                statement.execution_options(**execution),
+                bind_arguments=kwargs.get("bind_arguments"),
             )
         return super().get(entity, ident, **kwargs)
 

@@ -7,7 +7,7 @@ import httpx
 
 
 def main():
-    url = os.environ.get("OPENCLM_HEALTH_URL", "https://legalops.dev/openclm/health")
+    url = os.environ.get("OPENCLM_HEALTH_URL", "http://127.0.0.1:8000/health")
     try:
         response = httpx.get(url, timeout=15, follow_redirects=False)
         response.raise_for_status()

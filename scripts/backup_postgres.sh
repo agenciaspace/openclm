@@ -3,7 +3,7 @@
 set -euo pipefail
 umask 077
 backup_dir="${OPENCLM_BACKUP_DIR:-/root/.local/share/openclm/backups}"
-container_name="${OPENCLM_POSTGRES_CONTAINER:-openclm-postgres}"
+container_name="${OPENCLM_POSTGRES_CONTAINER:-openclm-db-1}"
 mkdir -p "$backup_dir"
 backup_file="$backup_dir/openclm-$(date -u +%Y%m%dT%H%M%SZ).dump"
 docker exec "$container_name" pg_dump -U openclm -d openclm -Fc > "$backup_file.tmp"
@@ -19,6 +19,7 @@ if [ -n "${OPENCLM_BACKUP_BUCKET:-}" ]; then
   bundle="${backup_file%.dump}.tar.gz"
   : "${OPENCLM_CONFIG_FILE:?Set OPENCLM_CONFIG_FILE for recovery secrets}"
   tar -czf "$bundle" -C "$backup_dir" "$(basename "$backup_file")" "$(basename "$backup_file.sha256")" -C "$(dirname "$OPENCLM_CONFIG_FILE")" "$(basename "$OPENCLM_CONFIG_FILE")"
+  find "$backup_dir" -maxdepth 1 -name 'openclm-*.tar.gz' -type f -mtime +30 -delete
   "$OPENCLM_WRANGLER" r2 object put "$OPENCLM_BACKUP_BUCKET/daily/$(basename "$bundle")" --file "$bundle" --remote > /dev/null
   find "$backup_dir" -maxdepth 1 -name 'openclm-*.tar.gz' -type f -mtime +30 -delete
   printf 'OpenCLM offsite backup uploaded\n'

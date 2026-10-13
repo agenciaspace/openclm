@@ -10,6 +10,7 @@ import ssl
 import time
 from datetime import timedelta
 from email.message import EmailMessage
+from email.utils import parseaddr
 
 import httpx
 from sqlalchemy import delete, select, update
@@ -69,11 +70,12 @@ def deliver(cfg, message):
                 smtp.login(cfg.smtp_username, cfg.smtp_password)
             smtp.send_message(email)
     elif cfg.mail_transport == "cloudflare":
+        sender_name, sender_address = parseaddr(cfg.mail_from)
         with httpx.Client(timeout=20, trust_env=False) as client:
             response = client.post(
                 f"https://api.cloudflare.com/client/v4/accounts/{cfg.cloudflare_account_id}/email/sending/send",
                 headers={"Authorization": f"Bearer {cfg.cloudflare_email_token}"},
-                json={"from": cfg.mail_from, **message},
+                json={"from": {"address": sender_address, "name": sender_name}, **message},
             )
             response.raise_for_status()
             if not response.json().get("success"):

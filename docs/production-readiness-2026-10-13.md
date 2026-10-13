@@ -147,3 +147,7 @@ Não foram executados teste de carga, teste em aparelho físico, auditoria compl
 de acessibilidade, auditoria de segurança exaustiva, envio de e-mail ou assinatura
 real. Nenhuma configuração, conta, senha ou dado de produção foi alterado nesta
 rodada de avaliação.
+
+## Atualização após organizações
+
+O inventário acima registra o estado anterior à implementação. O comando atual `scripts.production_readiness` executa testes reais de contas e isolamento, sem redescobrir rotas; retorna 2 porque homologação de provedores e verificações operacionais são etapas separadas. Consulte `organizations-operations.md` para o comportamento implementado.

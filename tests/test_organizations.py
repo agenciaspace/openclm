@@ -280,3 +280,46 @@ def test_limits_and_signup_switch(client, app):
         == 403
     )
     assert result["user"]["is_owner"]
+
+
+def test_legacy_seed_never_joins_independent_organizations(app):
+    # Use a fresh database: one self-service identity/organization, no legacy space.
+    from openclm.db import LEGACY_ORGANIZATION_ID, Base, make_engine, session_factory
+    from openclm.models import Membership, Organization, User
+    from openclm.seed import seed_templates
+
+    engine = make_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    with session_factory(engine)() as db:
+        user = User(
+            email="separate@example.com", name="Separate", role="viewer", password_hash="unused"
+        )
+        db.add(user)
+        db.flush()
+        org = Organization(name="Separate space", owner_id=user.id)
+        db.add(org)
+        db.flush()
+        db.add(Membership(organization_id=org.id, user_id=user.id, role="admin"))
+        db.commit()
+        with pytest.raises(ValueError, match="existing organization"):
+            seed_templates(db)
+        assert db.get(Organization, LEGACY_ORGANIZATION_ID) is None
+        assert len(db.scalars(select(Membership)).all()) == 1
+    engine.dispose()
+
+
+def test_forwarded_rate_limit_ip_requires_proxy_secret(app):
+    from starlette.requests import Request
+
+    from openclm.security import client_address
+
+    app.state.settings.proxy_secret = "test-proxy-secret"
+    scope = {
+        "type": "http",
+        "app": app,
+        "client": ("127.0.0.1", 1234),
+        "headers": [(b"x-openclm-client-ip", b"192.0.2.10")],
+    }
+    assert client_address(Request(scope)) == "127.0.0.1"
+    scope["headers"].append((b"x-openclm-proxy-key", b"test-proxy-secret"))
+    assert client_address(Request(scope)) == "192.0.2.10"
