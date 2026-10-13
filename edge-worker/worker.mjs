@@ -3,6 +3,7 @@ const ORIGIN = 'https://openclm.leonn.dev';
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.origin !== PUBLIC) return Response.redirect(PUBLIC + url.pathname + url.search,308);
     if (!['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS'].includes(request.method)) return new Response('Method not allowed', {status:405});
     if (url.pathname === '/openintake' || url.pathname === '/openintake/') {
       return Response.redirect(`${PUBLIC}/openclm/intake${url.search}`, 302);

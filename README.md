@@ -149,3 +149,7 @@ For the LegalOps deployment, `PROXY_HOSTNAME=openclm.leonn.dev` permits the tunn
 O cadastro oferece seis códigos de recuperação de uso único. Verificação de e-mail, convites e recuperação por e-mail usam uma fila criptografada com retentativas (SMTP ou relay Cloudflare). Sem transporte configurado, compartilhe convites manualmente e use os códigos para recuperação. Recuperar a senha revoga sessões e chaves de API.
 
 Limites padrão: 10 organizações próprias por conta, 100 membros e 5.000 contratos por organização. Cadastro e convites têm limites de frequência. Consulte [operação e restauração](docs/organizations-operations.md).
+
+## OpenIntake
+
+O [OpenIntake](https://legalops.dev/openintake) compartilha contas e organizações com o OpenCLM: catálogo de serviços, solicitação guiada, distribuição, prazos, acompanhamento, notas internas, anexos e orientações da equipe. [Funcionalidades, perfis e limites](docs/openintake.md).

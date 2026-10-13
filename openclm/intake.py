@@ -403,7 +403,15 @@ def triage(request_id: str, payload: TriageInput, db: DB, user: Legal):
         IntakeMessage(
             request_id=item.id,
             author_id=user.id,
-            body=f"Status: {item.status}."
+            body="Status: "
+            + {
+                "new": "Na triagem",
+                "in_progress": "Em atendimento",
+                "waiting": "Aguardando informações",
+                "resolved": "Concluída",
+                "cancelled": "Cancelada",
+            }[item.status]
+            + "."
             + ("\n" + item.resolution if item.status == "resolved" else ""),
         )
     )
@@ -453,6 +461,8 @@ class AttachmentInput(Input):
 def attach(request_id: str, payload: AttachmentInput, db: DB, user: Auth):
     lock_organization(db, user.organization_id)
     item = get_request(db, user, request_id)
+    if item.status == "cancelled":
+        raise HTTPException(409, "Solicitação cancelada.")
     try:
         content = base64.b64decode(payload.content_base64, validate=True)
     except (binascii.Error, ValueError):

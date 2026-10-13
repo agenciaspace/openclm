@@ -242,3 +242,29 @@ def test_invalid_answers_inactive_service_and_expired_deadline(client):
     body["active"] = False
     assert client.put("/api/v1/intake/services/" + selected["id"], json=body).status_code == 200
     assert submit(client, selected).status_code == 422
+
+
+def test_removing_legal_assignment_returns_open_work_to_triage(client):
+    reviewer = login(client, "reviewer")
+    login(client)
+    selected = service(client)
+    body = {k: v for k, v in selected.items() if k != "id"}
+    body["assignee_id"] = reviewer["id"]
+    assert client.put("/api/v1/intake/services/" + selected["id"], json=body).status_code == 200
+    item = submit(client).json()
+    assert item["assignee_id"] == reviewer["id"]
+    assert (
+        client.patch(
+            "/api/v1/organizations/current/members/" + reviewer["id"], json={"role": "viewer"}
+        ).status_code
+        == 200
+    )
+    updated = client.get("/api/v1/intake/requests/" + item["id"]).json()
+    assert updated["assignee_id"] is None and updated["status"] == "new"
+    assert updated["revision"] > item["revision"]
+    assert (
+        next(s for s in client.get("/api/v1/intake/services").json() if s["id"] == selected["id"])[
+            "assignee_id"
+        ]
+        is None
+    )
