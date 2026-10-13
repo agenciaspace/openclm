@@ -420,6 +420,8 @@ def update_member(user_id: str, payload: MemberChange, db: DB, user: Admin):
             409, "Transfira a propriedade antes de alterar o perfil do proprietário."
         )
     member.role = payload.role
+    if payload.role not in {"admin", "reviewer"}:
+        release_intake_assignments(db, user_id)
     audit(db, user.id, "member.role_changed", user_id=user_id, role=payload.role)
     db.commit()
     return principal(db, db.get(User, user_id), user.organization_id)
@@ -434,6 +436,7 @@ def remove_member(user_id: str, db: DB, user: Admin):
     if not member or not member.active:
         raise HTTPException(404, "Membro não encontrado.")
     member.active = False
+    release_intake_assignments(db, user_id)
     db.execute(
         delete(Token).where(Token.user_id == user_id, Token.organization_id == user.organization_id)
     )
@@ -623,3 +626,23 @@ def invitation_preview(payload: ActionToken, request: Request, db: DB):
             "role": item.role,
             "expires_at": item.expires_at,
         }
+
+
+def release_intake_assignments(db, user_id):
+    from .models import IntakeRequest, IntakeService
+
+    db.execute(
+        update(IntakeService)
+        .where(IntakeService.assignee_id == user_id)
+        .values(assignee_id=None, revision=IntakeService.revision + 1)
+    )
+    db.execute(
+        update(IntakeRequest)
+        .where(
+            IntakeRequest.assignee_id == user_id,
+            IntakeRequest.status.in_(["new", "in_progress", "waiting"]),
+        )
+        .values(
+            assignee_id=None, status="new", updated_at=now(), revision=IntakeRequest.revision + 1
+        )
+    )

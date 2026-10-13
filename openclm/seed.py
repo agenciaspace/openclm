@@ -36,8 +36,15 @@ def seed_templates(db, *, commit=True):
             db.flush()
         db.info["organization_id"] = LEGACY_ORGANIZATION_ID
         db.info["tenant_required"] = True
+    from .intake import seed_services
+
+    intake_created = seed_services(db)
     if db.scalar(select(Template.id).limit(1)):
-        return False
+        if commit:
+            db.commit()
+        else:
+            db.flush()
+        return intake_created
     workflow = Workflow(
         name="Revisão jurídica", steps=[{"name": "Aprovação jurídica", "approver_id": None}]
     )

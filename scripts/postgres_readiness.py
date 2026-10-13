@@ -76,6 +76,7 @@ def main():
             "-q",
             "tests/test_organizations.py",
             "tests/test_account_mail.py",
+            "tests/test_intake.py",
             env={**os.environ, "OPENCLM_TEST_DATABASE_URL": url},
         )
         report["checks"].append("organization_and_account_acceptance_on_isolated_postgres_schemas")

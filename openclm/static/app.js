@@ -1,5 +1,8 @@
 "use strict";
 const BASE_PATH = new URL(document.currentScript.src).pathname.replace(/\/static\/app\.js$/, "");
+const IS_INTAKE = /\/intake\/?$/.test(location.pathname);
+const PRODUCT_NAME = IS_INTAKE ? "OpenIntake" : "OpenCLM";
+if (IS_INTAKE) document.title = "OpenIntake · Sua porta de entrada para o jurídico";
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const escape = (value) =>
@@ -44,7 +47,7 @@ const actionLabels = {
 };
 let state = {
   user: null,
-  view: "contracts",
+  view: IS_INTAKE ? "intake" : "contracts",
   templates: [],
   workflows: [],
   users: [],
@@ -178,13 +181,14 @@ async function loadWorkspace() {
 }
 function shell() {
   const menu = [
+    ["intake", "↗", "OpenIntake"],
     ["contracts", "▤", "Contratos"],
     ["templates", "▧", "Modelos e formulários"],
     ["workflows", "⇄", "Workflows"],
     ["settings", "⚙", "Configurações"],
   ];
   $("#app").innerHTML =
-    `<div class="shell"><aside class="sidebar" id="openclm-sidebar"><a class="brand" href="${BASE_PATH}/" aria-label="OpenCLM início"><img src="${BASE_PATH}/static/icon.svg" alt="">open<em>clm</em></a><div class="side-label">SUA ORGANIZAÇÃO</div><nav class="nav" aria-label="Navegação principal">${menu.map(([key, icon, name]) => `<button data-view="${key}" class="${state.view === key ? "active" : ""}"><span class="nav-icon">${icon}</span>${name}</button>`).join("")}</nav><div class="side-bottom"><div class="privacy-note"><strong>◈ Seu espaço é privado.</strong>Dados isolados por organização.<br>Sem telemetria de uso.</div><div class="profile"><span class="avatar">${escape(state.user.name.slice(0, 2).toUpperCase())}</span><div class="profile-info"><strong>${escape(state.user.name)}</strong><span class="muted small">${roles[state.user.role]}</span></div><button class="icon-button" id="logout" aria-label="Sair da conta" title="Sair">↪</button></div></div></aside><main class="main"><header class="topbar"><div class="topbar-start"><button class="icon-button sidebar-toggle" id="sidebar-toggle" type="button" aria-controls="openclm-sidebar" aria-expanded="true" aria-label="Recolher menu lateral" title="Recolher menu lateral">☰</button><div class="breadcrumb">${escape(state.user.organization_name)} <span>/ &nbsp; <b id="crumb">Contratos</b></span></div></div><div class="top-right"><span class="local-badge"><i class="dot"></i> Gratuito</span><a href="${BASE_PATH}/docs" target="_blank" rel="noopener">API ↗</a><button class="icon-button mobile-logout" id="top-logout" aria-label="Encerrar sessão">Sair</button></div></header><div class="content" id="content"></div></main></div>`;
+    `<div class="shell"><aside class="sidebar" id="openclm-sidebar"><a class="brand" href="${BASE_PATH}/" aria-label="OpenCLM início"><img src="${BASE_PATH}/static/icon.svg" alt="">open<em>${IS_INTAKE ? "intake" : "clm"}</em></a><div class="side-label">SUA ORGANIZAÇÃO</div><nav class="nav" aria-label="Navegação principal">${menu.map(([key, icon, name]) => `<button data-view="${key}" class="${state.view === key ? "active" : ""}"><span class="nav-icon">${icon}</span>${name}</button>`).join("")}</nav><div class="side-bottom"><div class="privacy-note"><strong>◈ Seu espaço é privado.</strong>Dados isolados por organização.<br>Sem telemetria de uso.</div><div class="profile"><span class="avatar">${escape(state.user.name.slice(0, 2).toUpperCase())}</span><div class="profile-info"><strong>${escape(state.user.name)}</strong><span class="muted small">${roles[state.user.role]}</span></div><button class="icon-button" id="logout" aria-label="Sair da conta" title="Sair">↪</button></div></div></aside><main class="main"><header class="topbar"><div class="topbar-start"><button class="icon-button sidebar-toggle" id="sidebar-toggle" type="button" aria-controls="openclm-sidebar" aria-expanded="true" aria-label="Recolher menu lateral" title="Recolher menu lateral">☰</button><div class="breadcrumb">${escape(state.user.organization_name)} <span>/ &nbsp; <b id="crumb">Contratos</b></span></div></div><div class="top-right"><span class="local-badge"><i class="dot"></i> Gratuito</span><a href="${BASE_PATH}/docs" target="_blank" rel="noopener">API ↗</a><button class="icon-button mobile-logout" id="top-logout" aria-label="Encerrar sessão">Sair</button></div></header><div class="content" id="content"></div></main></div>`;
   const sidebarToggle = $("#sidebar-toggle");
   function setSidebar(collapsed) {
     $(".shell").classList.toggle("sidebar-collapsed", collapsed);
@@ -228,12 +232,14 @@ async function safeRender() {
 }
 async function renderView() {
   const titles = {
+    intake: "OpenIntake",
     contracts: "Contratos",
     templates: "Modelos e formulários",
     workflows: "Workflows",
     settings: "Configurações",
   };
   $("#crumb").textContent = titles[state.view];
+  if (state.view === "intake") await intakePage();
   if (state.view === "contracts") await contractsPage();
   if (state.view === "templates") templatesPage();
   if (state.view === "workflows") workflowsPage();
