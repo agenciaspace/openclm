@@ -16,6 +16,7 @@ from .accounts import router as accounts_router
 from .api import router
 from .config import Settings
 from .db import make_engine, session_factory
+from .intake import router as intake_router
 from .mail import outbox_loop
 from .oauth import router as oauth_router
 from .salesforce import router as salesforce_router
@@ -173,12 +174,17 @@ def create_app(settings: Settings | None = None):
     def home():
         return html_page("index.html")
 
+    @app.get("/intake", include_in_schema=False)
+    def intake_home():
+        return html_page("index.html")
+
     @app.get("/docs", include_in_schema=False)
     def docs():
         return html_page("docs.html")
 
     app.include_router(router)
     app.include_router(accounts_router)
+    app.include_router(intake_router)
     app.include_router(oauth_router)
     app.include_router(salesforce_router)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")

@@ -4,7 +4,7 @@ let pendingInvite = new URLSearchParams(location.hash.slice(1)).get("invite");
 
 function authFrame(title, subtitle, content) {
   modal.close();
-  $("#app").innerHTML = `<div class="login"><section class="login-story"><div class="brand"><img src="${BASE_PATH}/static/icon.svg" alt="">open<em>clm</em></div><div><div class="eyebrow">Livre por princípio.</div><h1>Seus contratos.<br>Sua equipe.<br>Seu espaço.</h1><p>Crie sua organização, convide sua equipe e acompanhe seus contratos em um espaço privado.</p></div><div class="small">Código aberto · Uso gratuito</div></section><section class="login-form"><div class="login-box"><h2>${escape(title)}</h2><p>${escape(subtitle)}</p>${content}</div></section></div>`;
+  $("#app").innerHTML = `<div class="login"><section class="login-story"><div class="brand"><img src="${BASE_PATH}/static/icon.svg" alt="">open<em>${IS_INTAKE ? "intake" : "clm"}</em></div><div><div class="eyebrow">Livre por princípio.</div><h1>${IS_INTAKE ? "Seu pedido.<br>O time certo.<br>Tudo acompanhado." : "Seus contratos.<br>Sua equipe.<br>Seu espaço."}</h1><p>${IS_INTAKE ? "Envie solicitações ao jurídico, complete as informações e acompanhe cada resposta em um espaço privado." : "Crie sua organização, convide sua equipe e acompanhe seus contratos em um espaço privado."}</p></div><div class="small">Código aberto · Uso gratuito</div></section><section class="login-form"><div class="login-box"><h2>${escape(title)}</h2><p>${escape(subtitle)}</p>${content}</div></section></div>`;
 }
 
 function renderAuth(mode = "login") {
@@ -17,7 +17,7 @@ function renderAuth(mode = "login") {
       <label>Senha<input name="password" type="password" required ${register ? 'minlength="12" maxlength="256" autocomplete="new-password"' : 'autocomplete="current-password"'}></label>
       ${register && !pendingInvite ? '<label>Nome da organização<input name="organization_name" required minlength="2" maxlength="120" placeholder="Sua empresa ou equipe"></label>' : ""}
       ${register ? '<p class="small muted">Use pelo menos 12 caracteres na senha. Você receberá códigos para recuperar seu acesso.</p>' : ""}
-      <div class="error" role="alert"></div><button class="button primary" type="submit">${register ? "Criar conta gratuita" : "Entrar no OpenCLM"} →</button>
+      <div class="error" role="alert"></div><button class="button primary" type="submit">${register ? "Criar conta gratuita" : `Entrar no ${PRODUCT_NAME}`} →</button>
     </form><div class="auth-actions">${authOptions.signup_enabled ? `<button class="text-link" id="auth-mode">${register ? "Já tenho conta" : "Criar conta gratuita"}</button>` : ""}<button class="text-link" id="forgot-password">Recuperar acesso</button></div>`);
   if ($("#auth-mode")) $("#auth-mode").onclick = () => renderAuth(register ? "login" : "register");
   $("#forgot-password").onclick = recoveryScreen;

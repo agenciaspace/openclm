@@ -264,3 +264,114 @@ class SalesforceLink(TenantOwned, Base):
     opportunity_id: Mapped[str] = mapped_column(String(18))
     opportunity_name: Mapped[str] = mapped_column(String(200))
     linked_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+
+
+class IntakeService(TenantOwned, Base):
+    __tablename__ = "intake_services"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id"),
+        ForeignKeyConstraint(
+            ["organization_id", "assignee_id"],
+            ["memberships.organization_id", "memberships.user_id"],
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(Text, default="")
+    guidance: Mapped[str] = mapped_column(Text, default="")
+    questions: Mapped[list] = mapped_column(JSON, default=list)
+    assignee_id: Mapped[str | None] = mapped_column(String(36))
+    sla_hours: Mapped[int] = mapped_column(Integer, default=48)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    __mapper_args__ = {"version_id_col": revision}
+
+
+class IntakeRequest(TenantOwned, Base):
+    __tablename__ = "intake_requests"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id"),
+        UniqueConstraint("organization_id", "requester_id", "submission_key"),
+        ForeignKeyConstraint(
+            ["organization_id", "service_id"],
+            ["intake_services.organization_id", "intake_services.id"],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "requester_id"],
+            ["memberships.organization_id", "memberships.user_id"],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "assignee_id"],
+            ["memberships.organization_id", "memberships.user_id"],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "contract_id"], ["contracts.organization_id", "contracts.id"]
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    service_id: Mapped[str] = mapped_column(String(36))
+    requester_id: Mapped[str] = mapped_column(String(36))
+    assignee_id: Mapped[str | None] = mapped_column(String(36))
+    submission_key: Mapped[str] = mapped_column(String(36))
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text)
+    service_name: Mapped[str] = mapped_column(String(120))
+    questions_snapshot: Mapped[list] = mapped_column(JSON)
+    answers: Mapped[dict] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(20), default="new", index=True)
+    priority: Mapped[str] = mapped_column(String(20), default="normal")
+    department: Mapped[str] = mapped_column(String(120), default="")
+    requested_deadline: Mapped[datetime | None] = mapped_column(DateTime)
+    due_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    contract_id: Mapped[str | None] = mapped_column(String(36))
+    resolution: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    __mapper_args__ = {"version_id_col": revision}
+
+
+class IntakeMessage(TenantOwned, Base):
+    __tablename__ = "intake_messages"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "request_id"],
+            ["intake_requests.organization_id", "intake_requests.id"],
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    request_id: Mapped[str] = mapped_column(String(36), index=True)
+    author_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    body: Mapped[str] = mapped_column(Text)
+    internal: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class IntakeAttachment(TenantOwned, Base):
+    __tablename__ = "intake_attachments"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "request_id"],
+            ["intake_requests.organization_id", "intake_requests.id"],
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    request_id: Mapped[str] = mapped_column(String(36), index=True)
+    filename: Mapped[str] = mapped_column(String(200))
+    content_base64: Mapped[str] = mapped_column(Text)
+    size: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64))
+    uploaded_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class IntakeArticle(TenantOwned, Base):
+    __tablename__ = "intake_articles"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text)
+    published: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    __mapper_args__ = {"version_id_col": revision}

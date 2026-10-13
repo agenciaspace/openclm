@@ -79,6 +79,9 @@ def seed_templates(db, *, commit=True):
             body="ACORDO DE CONFIDENCIALIDADE\n\n1. PARTES\n{{party_name}} ({{party_id}}) e {{counterparty_name}} ({{counterparty_id}}).\n\n2. FINALIDADE\nAs informações serão compartilhadas para: {{purpose}}.\n\n3. CONFIDENCIALIDADE\nAs partes se comprometem a proteger as informações recebidas e a utilizá-las exclusivamente para a finalidade acima. Deverão definir o escopo das informações protegidas, as exceções e as condições de divulgação obrigatória.\n\n4. PRAZO\nEste acordo terá início em {{effective_date}}, com vigência de {{term_months}} meses. As partes deverão definir a duração do dever de sigilo após o encerramento.\n\n5. FORO\n{{jurisdiction}}.\n\nMODELO DEMONSTRATIVO — completar e revisar antes da assinatura.",
         )
     )
+    from .intake import seed_services
+
+    seed_services(db)
     if commit:
         db.commit()
     else:
