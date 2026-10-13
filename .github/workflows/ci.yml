@@ -18,6 +18,28 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run pytest -q
       - run: node --check openclm/static/app.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run test:browser
+      - run: uv run python -m scripts.postgres_readiness
+      - name: Inventory public-release gaps (not release approval)
+        shell: bash
+        run: |
+          set +e
+          uv run python -m scripts.production_readiness
+          status=$?
+          if [ "$status" -ne 0 ] && [ "$status" -ne 2 ]; then exit "$status"; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: readiness-evidence
+          path: |
+            artifacts/
+            test-results/
       - run: python3 scripts/configure.py
       - run: docker compose config --quiet
       - run: docker compose up --build -d --wait

@@ -122,7 +122,9 @@ uv run ruff format --check .
 node --check openclm/static/app.js
 ```
 
-O CI verifica os testes e inicia a imagem Docker com PostgreSQL. Testes de DocuSign e Ollama usam transporte simulado: não enviam documentos, não dependem de credenciais externas e não equivalem a uma homologação com a conta real do provedor.
+O CI verifica os testes de API e navegador, ensaia migração e restauração em PostgreSQL e inicia a imagem Docker. Testes de DocuSign e Ollama usam transporte simulado: não enviam documentos, não dependem de credenciais externas e não equivalem a uma homologação com a conta real do provedor.
+
+A [avaliação de lançamento público de 13/10/2026](docs/production-readiness-2026-10-13.md) registra as lacunas para cadastro gratuito, organizações isoladas, convites e DocuSign real, com comandos de reprodução e critérios de entrega. O inventário automatizado retorna código 2 enquanto houver pendências; CI verde da versão atual não significa prontidão para abertura pública.
 
 ## Limites desta versão
 
