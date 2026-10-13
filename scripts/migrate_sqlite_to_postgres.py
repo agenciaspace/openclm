@@ -42,7 +42,8 @@ def migrate(source_url, target_url):
                 if rows:
                     dst.execute(table.insert(), [dict(row) for row in rows])
                 restored = dst.execute(select(table)).mappings().all()
-                assert fingerprint(rows) == fingerprint(restored), table.name
+                if fingerprint(rows) != fingerprint(restored):
+                    raise RuntimeError(f"Restored fingerprint mismatch: {table.name}")
                 report[table.name] = {"rows": len(rows), "sha256": fingerprint(rows)}
             dst.execute(
                 text(

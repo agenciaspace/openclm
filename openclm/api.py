@@ -27,6 +27,7 @@ from .models import (
 )
 from .oauth import access_token, connection_for
 from .security import (
+    client_address,
     current_user,
     digest,
     dummy_hash,
@@ -78,7 +79,7 @@ def check_owner(contract, user):
 
 @router.post("/auth/login", response_model=s.UserOut, tags=["Authentication"])
 def login(payload: s.Login, request: Request, response: Response, db: DB):
-    address_hash = digest(request.client.host if request.client else "unknown")
+    address_hash = digest(client_address(request))
     cutoff = now() - timedelta(minutes=10)
     db.execute(delete(LoginAttempt).where(LoginAttempt.created_at < now() - timedelta(days=7)))
     attempts = db.scalar(

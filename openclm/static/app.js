@@ -91,7 +91,7 @@ async function api(path, options = {}) {
   });
   if (response.status === 204) return null;
   const data = await response.json();
-  if (requestedOrganization && state.user?.organization_id !== requestedOrganization && !/^\/(auth|organizations|invitations)(\/|$)/.test(path)) {
+  if (requestedOrganization && state.user?.organization_id !== requestedOrganization && !(/^\/auth\//.test(path) || path === "/organizations" || /^\/organizations\/[^/]+\/activate$/.test(path) || /^\/invitations\//.test(path))) {
     throw new Error("A organização mudou. A resposta anterior foi descartada.");
   }
   if (!response.ok) {

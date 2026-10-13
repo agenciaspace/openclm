@@ -19,7 +19,7 @@ jobs:
       - run: uv run pytest -q
       - run: node --check openclm/static/app.js
       - run: node --check openclm/static/accounts.js
-      - run: node --test email-worker/test.mjs
+      - run: node --test email-worker/test.mjs edge-worker/test.mjs
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

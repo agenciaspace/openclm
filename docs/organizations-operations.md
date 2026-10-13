@@ -19,3 +19,7 @@ Six one-use recovery codes are displayed on signup/reset and can be rotated afte
 5. Restore a downloaded backup into an isolated database using `pg_restore --no-owner --no-acl`, compare table counts/fingerprints, then verify application reads. Monitor `scripts/healthcheck.py` through systemd; failures appear in the local journal. No automatic WhatsApp messages.
 
 The public deployment uses PostgreSQL 17 on loopback and a single application process. DocuSign and Salesforce remain disabled pending real provider validation. Tests use mocked providers. Full distributed abuse, performance under sustained production load and accessibility certification are not claimed.
+
+Legacy databases with seeded templates but no users must create the initial admin using their previous release before this migration. The migration fails before changing tables in that case. Public self-service installs must pass an existing `--organization-id` to CLI seeding; seeding cannot combine independent accounts.
+
+`edge-worker/` is the LegalOps-specific route configuration. Its `PROXY_SECRET` must match the application; it overwrites original-client-IP metadata, and untrusted forwarded headers are ignored. General self-hosters should use their own account/routes and set `OPENCLM_POSTGRES_CONTAINER` for their Docker container and `OPENCLM_HEALTH_URL` for their public health endpoint.

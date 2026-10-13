@@ -3,7 +3,7 @@ import re
 from urllib.parse import urlparse
 
 from cryptography.fernet import Fernet
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,16 +14,17 @@ class Settings(BaseSettings):
     app_url: str = "http://localhost:8000"
     base_path: str = ""
     proxy_hostname: str = ""
+    proxy_secret: str = ""
     secure_cookies: bool = False
     session_hours: int = 12
     public_signup_enabled: bool = True
-    max_organizations_per_user: int = 10
-    max_members_per_organization: int = 100
-    max_contracts_per_organization: int = 5000
+    max_organizations_per_user: int = Field(default=10, ge=1)
+    max_members_per_organization: int = Field(default=100, ge=1)
+    max_contracts_per_organization: int = Field(default=5000, ge=1)
     mail_transport: str = "disabled"
     mail_from: str = "OpenCLM <contato@legalops.dev>"
     smtp_host: str = ""
-    smtp_port: int = 587
+    smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_username: str = ""
     smtp_password: str = ""
     smtp_starttls: bool = True
@@ -55,6 +56,10 @@ class Settings(BaseSettings):
             raise ValueError("Unsupported mail transport")
         if self.mail_transport != "disabled" and not self.token_encryption_key:
             raise ValueError("Mail queue requires TOKEN_ENCRYPTION_KEY")
+        if self.mail_transport != "disabled":
+            Fernet(self.token_encryption_key.encode())
+        if self.mail_transport == "smtp" and not self.smtp_starttls:
+            raise ValueError("SMTP requires STARTTLS for account links")
         if self.mail_transport == "smtp" and not self.smtp_host:
             raise ValueError("SMTP_HOST is required")
         if self.mail_transport == "relay" and (
