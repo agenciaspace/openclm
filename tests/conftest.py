@@ -1,8 +1,12 @@
+import os
 from datetime import timedelta
+from uuid import uuid4
 
 import pytest
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 
 from openclm.config import Settings
 from openclm.db import Base
@@ -17,9 +21,22 @@ PASSWORD = "local-test-password-2026"
 
 @pytest.fixture
 def app(tmp_path):
+    postgres_url = os.environ.get("OPENCLM_TEST_DATABASE_URL")
+    schema = "test_" + uuid4().hex
+    control = None
+    database_url = f"sqlite:///{tmp_path}/test.db"
+    if postgres_url:
+        control = create_engine(postgres_url)
+        with control.begin() as connection:
+            connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+        database_url = (
+            make_url(postgres_url)
+            .update_query_dict({"options": f"-csearch_path={schema}"})
+            .render_as_string(hide_password=False)
+        )
     cfg = Settings(
         _env_file=None,
-        database_url=f"sqlite:///{tmp_path}/test.db",
+        database_url=database_url,
         app_url="https://testserver",
         secure_cookies=True,
         token_encryption_key=Fernet.generate_key().decode(),
@@ -40,6 +57,10 @@ def app(tmp_path):
         seed_templates(db)
     yield app
     app.state.engine.dispose()
+    if control:
+        with control.begin() as connection:
+            connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+        control.dispose()
 
 
 @pytest.fixture

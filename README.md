@@ -2,9 +2,9 @@
 
 **Seus contratos. Sua infraestrutura. Seu controle.**
 
-Uma base open-source para gestão do ciclo de vida de contratos, com hospedagem própria, documentos gerados a partir de formulários, aprovações e IA local opcional. Licença MIT; sem conta OpenCLM, telemetria ou serviços de nuvem obrigatórios.
+Uma base open-source para gestão do ciclo de vida de contratos, com hospedagem própria, documentos gerados a partir de formulários, aprovações e IA local opcional. Licença MIT; sem telemetria ou serviços de nuvem obrigatórios na hospedagem própria.
 
-> **v0.1 — base funcional para desenvolvimento e avaliação.** Uma organização por instalação. Não é uma plataforma de CLM completa ou uma implantação de produção já auditada.
+> **Cadastro gratuito e organizações isoladas.** Crie sua conta e organização, convide a equipe e defina permissões. DocuSign depende de configuração e homologação próprias.
 
 ## O que funciona
 
@@ -38,7 +38,7 @@ docker compose exec app python -m openclm.cli seed
 
 Abra **http://localhost:8000**. A API é apresentada em **http://localhost:8000/docs**; o arquivo OpenAPI está em `/openapi.json`. Todos os recursos dessa documentação são servidos localmente, sem CDN.
 
-Crie um revisor em **Configurações → Equipe**, ou pelo mesmo comando com `--role reviewer`. O autor de um contrato não pode aprová-lo, inclusive quando administrador.
+Convide um revisor em **Configurações → Equipe**, ou pelo mesmo comando com `--role reviewer`. O autor de um contrato não pode aprová-lo, inclusive quando administrador.
 
 O Compose publica somente a aplicação, no loopback da máquina. Banco e Ollama não possuem portas públicas. Contratos, respostas, versões e tokens criptografados ficam no volume `postgres_data`. **Não execute `docker compose down -v` se quiser preservar os dados.**
 
@@ -103,7 +103,7 @@ Esta versão aceita até 16 mil caracteres por análise, informa quando o limite
 | Revisor | Sim | Não | Não | Etapas autorizadas de outros autores | Não |
 | Administrador | Sim | Sim | Todos | Etapas autorizadas de outros autores | Sim |
 
-**Não há isolamento por departamento ou cliente.** Todas as pessoas autenticadas consultam a base da instalação. Use instalações separadas para organizações diferentes. Chaves de API herdam o perfil de sua conta; não têm permissões próprias por endpoint nesta versão.
+**Os dados são isolados por organização.** Uma identidade pode participar de várias organizações, com perfil diferente em cada uma. Sessões selecionam uma organização; chaves de API ficam vinculadas à organização em que foram criadas. Dentro de uma organização, todos os membros consultam os contratos; ainda não há permissões por documento/departamento.
 
 As senhas e chaves de API são armazenadas como hashes. Tokens OAuth são criptografados com `TOKEN_ENCRYPTION_KEY`. Os documentos e as respostas ficam no banco da sua instalação; a criptografia do disco e dos backups é responsabilidade da implantação. O histórico é acrescentado pela aplicação e não pode ser editado pela API; ele não é um arquivo inviolável contra administradores do banco.
 
@@ -124,11 +124,11 @@ node --check openclm/static/app.js
 
 O CI verifica os testes de API e navegador, ensaia migração e restauração em PostgreSQL e inicia a imagem Docker. Testes de DocuSign e Ollama usam transporte simulado: não enviam documentos, não dependem de credenciais externas e não equivalem a uma homologação com a conta real do provedor.
 
-A [avaliação de lançamento público de 13/10/2026](docs/production-readiness-2026-10-13.md) registra as lacunas para cadastro gratuito, organizações isoladas, convites e DocuSign real, com comandos de reprodução e critérios de entrega. O inventário automatizado retorna código 2 enquanto houver pendências; CI verde da versão atual não significa prontidão para abertura pública.
+A avaliação inicial, anterior a esta implementação, [de 13/10/2026](docs/production-readiness-2026-10-13.md) registra as lacunas para cadastro gratuito, organizações isoladas, convites e DocuSign real, com comandos de reprodução e critérios de entrega. O inventário automatizado retorna código 2 enquanto houver pendências; CI verde da versão atual não significa prontidão para abertura pública.
 
 ## Limites desta versão
 
-Ainda não inclui editor colaborativo/redline, importação de modelos DOCX, upload de contratos existentes, extração de PDFs, PDF assinado arquivado automaticamente, SSO/MFA, regras condicionais de workflow, filas duráveis, permissões por documento ou multi-organização. Integrações externas dependem da configuração do servidor e da disponibilidade/autorização dos provedores.
+Ainda não inclui editor colaborativo/redline, importação de modelos DOCX, upload de contratos existentes, extração de PDFs, PDF assinado arquivado automaticamente, SSO/MFA, regras condicionais de workflow, filas duráveis para integrações, permissões por documento. Integrações externas dependem da configuração do servidor e da disponibilidade/autorização dos provedores.
 
 English: OpenCLM is an MIT-licensed, self-hosted contract lifecycle management foundation. Contracts, forms, document versions and approval workflows live on your infrastructure. Local Ollama AI and user-authorized DocuSign eSignature are optional.
 
@@ -136,10 +136,16 @@ English: OpenCLM is an MIT-licensed, self-hosted contract lifecycle management f
 
 Salesforce OAuth + PKCE, opportunity search and audited contract links are available. See [configuration and scope](docs/salesforce.md). DocuSign supports authorized signature dispatch and authenticated status callbacks; see [DocuSign setup](docs/docusign.md).
 
-The LegalOps [live demo](https://legalops.dev/openclm/) runs on an isolated installation and requires a demo account. Example templates are labeled `[DEMO]`. External integrations display their actual configuration/connection state; a live demo does not mean external provider credentials are installed.
+The LegalOps [live demo](https://legalops.dev/openclm/) supports free signup and isolated organizations. Example templates are labeled `[DEMO]`. External integrations display their actual configuration/connection state; a live demo does not mean external provider credentials are installed.
 
 ### Hosting under a path
 
 Set `APP_URL=https://legalops.dev` and `BASE_PATH=/openclm` to serve the application behind a proxy which removes that prefix. The browser UI, API, downloads, session cookie path, OAuth callback URLs and DocuSign webhook URL use this prefix. Update provider-registered callbacks when changing the public URL.
 
 For the LegalOps deployment, `PROXY_HOSTNAME=openclm.leonn.dev` permits the tunnel origin. The Pages proxy sets `X-OpenCLM-Proxy: legalops.dev`; direct origin navigation redirects to the public URL. This header only controls the canonical redirect, never authentication or permissions. No external provider is connected automatically.
+
+## Contas e organizações
+
+O cadastro oferece seis códigos de recuperação de uso único. Verificação de e-mail, convites e recuperação por e-mail usam uma fila criptografada com retentativas (SMTP ou relay Cloudflare). Sem transporte configurado, compartilhe convites manualmente e use os códigos para recuperação. Recuperar a senha revoga sessões e chaves de API.
+
+Limites padrão: 10 organizações próprias por conta, 100 membros e 5.000 contratos por organização. Cadastro e convites têm limites de frequência. Consulte [operação e restauração](docs/organizations-operations.md).

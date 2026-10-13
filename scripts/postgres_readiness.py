@@ -71,6 +71,14 @@ def main():
         run(".venv/bin/alembic", "upgrade", "head", env=env)
         run(".venv/bin/alembic", "check", env=env)
         report["checks"].append("clean_migration_and_schema_drift_check")
+        run(
+            ".venv/bin/pytest",
+            "-q",
+            "tests/test_organizations.py",
+            "tests/test_account_mail.py",
+            env={**os.environ, "OPENCLM_TEST_DATABASE_URL": url},
+        )
+        report["checks"].append("organization_and_account_acceptance_on_isolated_postgres_schemas")
         app = create_app(
             Settings(
                 _env_file=None, database_url=url, app_url="https://testserver", secure_cookies=True

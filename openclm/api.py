@@ -16,6 +16,7 @@ from .models import (
     Contract,
     DocumentVersion,
     LoginAttempt,
+    Membership,
     SignatureRequest,
     Template,
     Token,
@@ -30,8 +31,10 @@ from .security import (
     digest,
     dummy_hash,
     get_db,
+    identity_user,
     issue_token,
     passwords,
+    principal,
     require_roles,
     verify_password,
 )
@@ -77,11 +80,11 @@ def check_owner(contract, user):
 def login(payload: s.Login, request: Request, response: Response, db: DB):
     address_hash = digest(request.client.host if request.client else "unknown")
     cutoff = now() - timedelta(minutes=10)
-    db.execute(delete(LoginAttempt).where(LoginAttempt.created_at < cutoff))
+    db.execute(delete(LoginAttempt).where(LoginAttempt.created_at < now() - timedelta(days=7)))
     attempts = db.scalar(
         select(func.count())
         .select_from(LoginAttempt)
-        .where(LoginAttempt.address_hash == address_hash)
+        .where(LoginAttempt.address_hash == address_hash, LoginAttempt.created_at > cutoff)
     )
     if attempts >= 10:
         raise HTTPException(
@@ -93,10 +96,24 @@ def login(payload: s.Login, request: Request, response: Response, db: DB):
         db.add(LoginAttempt(address_hash=address_hash))
         db.commit()
         raise HTTPException(401, "E-mail ou senha inválidos.")
-    raw, _ = issue_token(
-        db, user.id, "session", "session", timedelta(hours=request.app.state.settings.session_hours)
+    membership = db.scalar(
+        select(Membership)
+        .where(Membership.user_id == user.id, Membership.active.is_(True))
+        .order_by(Membership.created_at, Membership.organization_id)
     )
-    audit(db, user, "auth.login")
+    organization_id = membership.organization_id if membership else None
+    if organization_id:
+        db.info["organization_id"] = organization_id
+    raw, _ = issue_token(
+        db,
+        user.id,
+        "session",
+        "session",
+        timedelta(hours=request.app.state.settings.session_hours),
+        organization_id=organization_id,
+    )
+    if organization_id:
+        audit(db, user, "auth.login")
     db.commit()
     response.set_cookie(
         "openclm_session",
@@ -107,16 +124,18 @@ def login(payload: s.Login, request: Request, response: Response, db: DB):
         max_age=request.app.state.settings.session_hours * 3600,
         path=request.app.state.settings.base_path + "/",
     )
-    return user
+    return principal(db, user, organization_id)
 
 
 @router.get("/auth/me", response_model=s.UserOut, tags=["Authentication"])
-def me(user: Auth):
-    return user
+def me(request: Request, db: DB, user: Annotated[User, Depends(identity_user)]):
+    return principal(db, user, request.state.auth_token.organization_id)
 
 
 @router.post("/auth/logout", status_code=204, tags=["Authentication"])
-def logout(request: Request, response: Response, db: DB, user: Auth):
+def logout(
+    request: Request, response: Response, db: DB, user: Annotated[User, Depends(identity_user)]
+):
     db.delete(request.state.auth_token)
     db.commit()
     response.delete_cookie("openclm_session", path=request.app.state.settings.base_path + "/")
@@ -124,11 +143,31 @@ def logout(request: Request, response: Response, db: DB, user: Auth):
 
 @router.get("/users", response_model=list[s.UserOut], tags=["Users"])
 def users(db: DB, user: Auth):
-    return db.scalars(select(User).where(User.active.is_(True)).order_by(User.name)).all()
+    members = db.scalars(
+        select(User)
+        .join(Membership, Membership.user_id == User.id)
+        .where(
+            User.active.is_(True),
+            Membership.organization_id == user.organization_id,
+            Membership.active.is_(True),
+        )
+        .order_by(User.name)
+    ).all()
+    return [principal(db, member, user.organization_id) for member in members]
 
 
 @router.post("/users", response_model=s.UserOut, status_code=201, tags=["Users"])
-def create_user(payload: s.UserCreate, db: DB, admin: Admin):
+def create_user(payload: s.UserCreate, request: Request, db: DB, admin: Admin):
+    from .accounts import lock_organization
+
+    lock_organization(db, admin.organization_id)
+    count = db.scalar(
+        select(func.count())
+        .select_from(Membership)
+        .where(Membership.organization_id == admin.organization_id, Membership.active.is_(True))
+    )
+    if count >= request.app.state.settings.max_members_per_organization:
+        raise HTTPException(409, "Limite de membros atingido.")
     if db.scalar(select(User).where(User.email == str(payload.email).lower())):
         raise HTTPException(409, "E-mail já cadastrado.")
     user = User(
@@ -139,15 +178,21 @@ def create_user(payload: s.UserCreate, db: DB, admin: Admin):
     )
     db.add(user)
     db.flush()
+    db.add(Membership(organization_id=admin.organization_id, user_id=user.id, role=payload.role))
     audit(db, admin, "user.created", user_id=user.id, role=user.role)
     db.commit()
-    return user
+    return principal(db, user, admin.organization_id)
 
 
 @router.get("/auth/api-keys", response_model=list[s.ApiKeyOut], tags=["Authentication"])
 def api_keys(db: DB, user: Auth):
     return db.scalars(
-        select(Token).where(Token.user_id == user.id, Token.kind == "api", Token.expires_at > now())
+        select(Token).where(
+            Token.user_id == user.id,
+            Token.organization_id == user.organization_id,
+            Token.kind == "api",
+            Token.expires_at > now(),
+        )
     ).all()
 
 
@@ -164,7 +209,12 @@ def create_api_key(payload: s.ApiKeyCreate, db: DB, user: Auth):
 @router.delete("/auth/api-keys/{key_id}", status_code=204, tags=["Authentication"])
 def revoke_api_key(key_id: str, db: DB, user: Auth):
     token = db.scalar(
-        select(Token).where(Token.id == key_id, Token.user_id == user.id, Token.kind == "api")
+        select(Token).where(
+            Token.id == key_id,
+            Token.user_id == user.id,
+            Token.organization_id == user.organization_id,
+            Token.kind == "api",
+        )
     )
     if not token:
         raise HTTPException(404, "Chave não encontrada.")
@@ -183,7 +233,14 @@ def create_workflow(payload: s.WorkflowCreate, db: DB, user: Admin):
     for step in payload.steps:
         if step.approver_id:
             approver = db.get(User, step.approver_id)
-            if not approver or not approver.active or approver.role not in {"admin", "reviewer"}:
+            member = db.get(Membership, (user.organization_id, step.approver_id))
+            if (
+                not approver
+                or not approver.active
+                or not member
+                or not member.active
+                or member.role not in {"admin", "reviewer"}
+            ):
                 raise HTTPException(
                     422, "Cada aprovador deve ser um revisor ou administrador ativo."
                 )
@@ -260,7 +317,15 @@ def dashboard(db: DB, user: Auth):
 
 
 @router.post("/contracts", response_model=s.ContractOut, status_code=201, tags=["Contracts"])
-def create_contract(payload: s.ContractCreate, db: DB, user: Editor):
+def create_contract(payload: s.ContractCreate, request: Request, db: DB, user: Editor):
+    from .accounts import lock_organization
+
+    lock_organization(db, user.organization_id)
+    if (
+        db.scalar(select(func.count()).select_from(Contract))
+        >= request.app.state.settings.max_contracts_per_organization
+    ):
+        raise HTTPException(409, "Limite de contratos da organização atingido.")
     template = db.get(Template, payload.template_id)
     if not template:
         raise HTTPException(422, "Modelo não encontrado.")
@@ -612,6 +677,8 @@ async def docusign_webhook(request: Request, db: DB):
     body = await request.body()
     if not verify_webhook(body, request.headers, cfg.docusign_hmac_secret):
         raise HTTPException(401, "Assinatura HMAC inválida.")
+    # Only a verified provider notification may resolve an envelope globally.
+    db.info["tenant_required"] = False
     event_digest = digest(body)
     if db.get(WebhookEvent, event_digest):
         return {"received": True, "duplicate": True}
@@ -635,6 +702,7 @@ async def docusign_webhook(request: Request, db: DB):
         )
     if signature.account_id != account_id:
         raise HTTPException(422, "A conta não corresponde ao envelope registrado.")
+    db.info.update(tenant_required=True, organization_id=signature.organization_id)
     apply_signature_status(db, signature, status)
     db.add(WebhookEvent(digest=event_digest))
     db.commit()

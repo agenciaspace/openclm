@@ -4,7 +4,32 @@ from .models import Template, Workflow
 from .schemas import Question
 
 
-def seed_templates(db):
+def seed_templates(db, *, commit=True):
+    from .db import LEGACY_ORGANIZATION_ID
+    from .models import Membership, Organization, User
+
+    if not db.info.get("organization_id"):
+        if not db.get(Organization, LEGACY_ORGANIZATION_ID):
+            users = db.scalars(select(User).order_by(User.created_at, User.id)).all()
+            if not users:
+                return False
+            owner = next((u for u in users if u.role == "admin" and u.active), users[0])
+            db.add(
+                Organization(id=LEGACY_ORGANIZATION_ID, name="Minha organização", owner_id=owner.id)
+            )
+            db.flush()
+            for user in users:
+                db.add(
+                    Membership(
+                        organization_id=LEGACY_ORGANIZATION_ID,
+                        user_id=user.id,
+                        role=user.role,
+                        active=user.active,
+                    )
+                )
+            db.flush()
+        db.info["organization_id"] = LEGACY_ORGANIZATION_ID
+        db.info["tenant_required"] = True
     if db.scalar(select(Template.id).limit(1)):
         return False
     workflow = Workflow(
@@ -54,5 +79,8 @@ def seed_templates(db):
             body="ACORDO DE CONFIDENCIALIDADE\n\n1. PARTES\n{{party_name}} ({{party_id}}) e {{counterparty_name}} ({{counterparty_id}}).\n\n2. FINALIDADE\nAs informações serão compartilhadas para: {{purpose}}.\n\n3. CONFIDENCIALIDADE\nAs partes se comprometem a proteger as informações recebidas e a utilizá-las exclusivamente para a finalidade acima. Deverão definir o escopo das informações protegidas, as exceções e as condições de divulgação obrigatória.\n\n4. PRAZO\nEste acordo terá início em {{effective_date}}, com vigência de {{term_months}} meses. As partes deverão definir a duração do dever de sigilo após o encerramento.\n\n5. FORO\n{{jurisdiction}}.\n\nMODELO DEMONSTRATIVO — completar e revisar antes da assinatura.",
         )
     )
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return True

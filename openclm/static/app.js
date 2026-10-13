@@ -78,17 +78,22 @@ function errorText(data) {
     : "Não foi possível concluir a operação.";
 }
 async function api(path, options = {}) {
+  const requestedOrganization = state.user?.organization_id;
   const response = await fetch(`${BASE_PATH}/api/v1${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       "X-OpenCLM": "1",
+      ...(state.user?.organization_id ? { "X-Organization-ID": state.user.organization_id } : {}),
       ...options.headers,
     },
     credentials: "same-origin",
   });
   if (response.status === 204) return null;
   const data = await response.json();
+  if (requestedOrganization && state.user?.organization_id !== requestedOrganization && !/^\/(auth|organizations|invitations)(\/|$)/.test(path)) {
+    throw new Error("A organização mudou. A resposta anterior foi descartada.");
+  }
   if (!response.ok) {
     if (response.status === 401 && state.user && path !== "/auth/login") {
       state.user = null;
@@ -131,15 +136,13 @@ function bindForm(selector, callback) {
     }
   });
 }
-function loginScreen() {
-  $("#app").innerHTML =
-    `<div class="login"><section class="login-story"><div class="brand"><img src="${BASE_PATH}/static/icon.svg" alt="">open<em>clm</em></div><div><div class="eyebrow">Livre por princípio. Seu por completo.</div><h1>Seus contratos.<br>Sua infraestrutura.<br>Seu controle.</h1><p>Do primeiro formulário à última assinatura, um espaço para cuidar de todo o ciclo dos seus contratos.</p></div><div class="small">Código aberto · Hospedagem própria · IA local</div></section><section class="login-form"><div class="login-box"><div class="eyebrow">Bem-vindo ao OpenCLM</div><h2>Acesse seu espaço</h2><p>Use a conta criada pelo administrador da sua instalação.</p><form id="login"><label>E-mail<input name="email" type="email" autocomplete="username" required placeholder="voce@suaempresa.com"></label><label>Senha<input name="password" type="password" autocomplete="current-password" required></label><div class="error" role="alert"></div><button class="button primary" type="submit">Entrar no OpenCLM <span>→</span></button></form><div class="notice">Primeiro acesso? Crie uma conta no servidor seguindo o <a href="${BASE_PATH}/docs">guia da API</a> e o README do projeto.</div></div></section></div>`;
-  bindForm("#login", async (data) => {
-    state.user = await post("/auth/login", Object.fromEntries(data));
-    await loadWorkspace();
-  });
-}
+function loginScreen() { renderAuth(); }
 async function loadWorkspace() {
+  state.user = await api("/auth/me");
+  if (pendingInvite) return invitationScreen();
+  state.organizations = await api("/organizations");
+  if (!state.user.organization_id) return organizationOnboarding();
+
   [
     state.templates,
     state.workflows,
@@ -157,7 +160,7 @@ async function loadWorkspace() {
   const outcome = params.get("docusign") || params.get("salesforce");
   if (outcome) {
     state.view = "settings";
-    history.replaceState(null, "", "/");
+    history.replaceState(null, "", BASE_PATH + "/");
   }
   shell();
   await renderView();
@@ -181,7 +184,7 @@ function shell() {
     ["settings", "⚙", "Configurações"],
   ];
   $("#app").innerHTML =
-    `<div class="shell"><aside class="sidebar" id="openclm-sidebar"><a class="brand" href="${BASE_PATH}/" aria-label="OpenCLM início"><img src="${BASE_PATH}/static/icon.svg" alt="">open<em>clm</em></a><div class="side-label">ESPAÇO DE TRABALHO</div><nav class="nav" aria-label="Navegação principal">${menu.map(([key, icon, name]) => `<button data-view="${key}" class="${state.view === key ? "active" : ""}"><span class="nav-icon">${icon}</span>${name}</button>`).join("")}</nav><div class="side-bottom"><div class="privacy-note"><strong>◈ Seus dados ficam com você.</strong>Hospedado na sua infraestrutura.<br>Sem telemetria de uso.</div><div class="profile"><span class="avatar">${escape(state.user.name.slice(0, 2).toUpperCase())}</span><div class="profile-info"><strong>${escape(state.user.name)}</strong><span class="muted small">${roles[state.user.role]}</span></div><button class="icon-button" id="logout" aria-label="Sair da conta" title="Sair">↪</button></div></div></aside><main class="main"><header class="topbar"><div class="topbar-start"><button class="icon-button sidebar-toggle" id="sidebar-toggle" type="button" aria-controls="openclm-sidebar" aria-expanded="true" aria-label="Recolher menu lateral" title="Recolher menu lateral">☰</button><div class="breadcrumb">Workspace <span>/ &nbsp; <b id="crumb">Contratos</b></span></div></div><div class="top-right"><span class="local-badge"><i class="dot"></i> Instância própria</span><a href="${BASE_PATH}/docs" target="_blank" rel="noopener">API ↗</a><button class="icon-button mobile-logout" id="top-logout" aria-label="Encerrar sessão">Sair</button></div></header><div class="content" id="content"></div></main></div>`;
+    `<div class="shell"><aside class="sidebar" id="openclm-sidebar"><a class="brand" href="${BASE_PATH}/" aria-label="OpenCLM início"><img src="${BASE_PATH}/static/icon.svg" alt="">open<em>clm</em></a><div class="side-label">SUA ORGANIZAÇÃO</div><nav class="nav" aria-label="Navegação principal">${menu.map(([key, icon, name]) => `<button data-view="${key}" class="${state.view === key ? "active" : ""}"><span class="nav-icon">${icon}</span>${name}</button>`).join("")}</nav><div class="side-bottom"><div class="privacy-note"><strong>◈ Seu espaço é privado.</strong>Dados isolados por organização.<br>Sem telemetria de uso.</div><div class="profile"><span class="avatar">${escape(state.user.name.slice(0, 2).toUpperCase())}</span><div class="profile-info"><strong>${escape(state.user.name)}</strong><span class="muted small">${roles[state.user.role]}</span></div><button class="icon-button" id="logout" aria-label="Sair da conta" title="Sair">↪</button></div></div></aside><main class="main"><header class="topbar"><div class="topbar-start"><button class="icon-button sidebar-toggle" id="sidebar-toggle" type="button" aria-controls="openclm-sidebar" aria-expanded="true" aria-label="Recolher menu lateral" title="Recolher menu lateral">☰</button><div class="breadcrumb">${escape(state.user.organization_name)} <span>/ &nbsp; <b id="crumb">Contratos</b></span></div></div><div class="top-right"><span class="local-badge"><i class="dot"></i> Gratuito</span><a href="${BASE_PATH}/docs" target="_blank" rel="noopener">API ↗</a><button class="icon-button mobile-logout" id="top-logout" aria-label="Encerrar sessão">Sair</button></div></header><div class="content" id="content"></div></main></div>`;
   const sidebarToggle = $("#sidebar-toggle");
   function setSidebar(collapsed) {
     $(".shell").classList.toggle("sidebar-collapsed", collapsed);
@@ -214,6 +217,7 @@ function shell() {
   };
   $("#logout").onclick = logout;
   $("#top-logout").onclick = logout;
+  renderOrganizationSwitcher();
 }
 async function safeRender() {
   try {
@@ -608,8 +612,9 @@ async function settingsPage() {
   const keys = await api("/auth/api-keys");
   const sf = await api("/integrations/salesforce/status");
   const cap = state.capabilities;
+  state.users = await api("/users");
   $("#content").innerHTML =
-    `<div class="page-heading"><div><div class="eyebrow">Sua instância</div><h1>Configurações</h1><p>Integrações opcionais. Controle explícito sobre seus dados.</p></div></div><div class="cards"><section class="card"><h3>Salesforce</h3><p>Vincule oportunidades aos contratos e consulte sua origem comercial.</p><p class="small">${sf.connected ? escape(sf.instance_url) : sf.configured ? "Pronto para conectar sua conta." : "Aguardando configuração do aplicativo pelo administrador."}</p>${canEdit() ? `<button class="button" id="connect-salesforce" ${sf.configured ? "" : "disabled"}>${sf.connected ? "Reconectar" : "Conectar Salesforce"}</button>` : ""}${sf.connected ? '<button class="button small" id="disconnect-salesforce">Desconectar</button>' : ""}<p class="small muted">Busca as 25 oportunidades mais recentes correspondentes ao nome. Não altera registros no Salesforce.</p></section><section class="card"><div class="card-top"><span class="badge">Local</span><span class="small muted">${cap.ai_enabled ? "Habilitada" : "Desativada"}</span></div><h3>Assistente com Ollama</h3><p>Resuma documentos, encontre pontos de atenção e sugira perguntas com um modelo no seu servidor.</p><div class="notice">${cap.ai_enabled ? `Modelo configurado: ${escape(cap.ai_model)}. O serviço precisa estar disponível e o modelo instalado.` : "Defina AI_ENABLED=true e o endereço do Ollama no arquivo de configuração. Baixe um modelo local antes de usar."}</div><a class="small" href="${BASE_PATH}/docs">Consultar API →</a></section><section class="card"><div class="card-top"><span class="badge">Serviço externo</span><span class="small muted">${state.docusign.connected ? "Conectado" : cap.docusign_enabled ? "Disponível" : "Aguardando configuração"}</span></div><h3>DocuSign eSignature</h3><p>Envie contratos aprovados para assinatura e receba atualizações autenticadas de status.</p><div class="notice warn">O envio compartilha o documento e os dados dos signatários com o DocuSign. Você autoriza cada envio antes de compartilhar o documento.</div><p class="small">Entre na sua conta DocuSign e autorize o acesso. A conexão será renovada automaticamente enquanto a autorização estiver válida.</p>${state.docusign.connected ? `<p><strong>${escape(state.docusign.account_name)}</strong><span class="subline">Conta padrão do DocuSign conectada</span></p><div class="inline-actions"><button class="button small" id="connect-docusign">Reconectar</button><button class="button small danger" id="disconnect-docusign">Desconectar</button></div>` : canEdit() ? `<button class="button primary" id="connect-docusign" ${cap.docusign_enabled ? "" : "disabled"}>Conectar com DocuSign ↗</button>${!cap.docusign_enabled ? '<p class="small muted">O administrador precisa habilitar a integração uma única vez nesta instalação.</p>' : ""}` : ""}</section></div><section class="panel settings-panel"><div class="panel-header"><h2>Chaves da API</h2><button class="button small" id="new-key">＋ Criar chave</button></div><div class="modal-body"><p class="small muted">As chaves herdam as permissões da sua conta e possuem validade. O segredo aparece apenas na criação.</p>${keys.map((k) => `<div class="card-bottom"><span>${escape(k.name)} <span class="small muted">· expira ${fmtDate(k.expires_at)}</span></span><button class="button small danger" data-revoke="${k.id}">Revogar</button></div>`).join("") || '<p class="small muted">Você ainda não possui chaves ativas.</p>'}</div></section>${state.user.role === "admin" ? `<section class="panel"><div class="panel-header"><h2>Equipe</h2><button class="button small" id="new-user">＋ Adicionar pessoa</button></div><div class="scroll-table"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th></tr></thead><tbody>${state.users.map((u) => `<tr><td>${escape(u.name)}</td><td>${escape(u.email)}</td><td>${roles[u.role]}</td></tr>`).join("")}</tbody></table></div></section>` : ""}<div class="notice">Uma organização por instalação. Todas as pessoas autenticadas podem consultar os contratos. Os perfis controlam criação, edição, aprovação e administração. Para equipes que precisem de isolamento entre si, use instalações separadas.</div>${footer()}`;
+    `<div class="page-heading"><div><div class="eyebrow">Sua organização</div><h1>Configurações</h1><p>Integrações opcionais. Controle explícito sobre seus dados.</p></div></div><div class="cards"><section class="card"><h3>Salesforce</h3><p>Vincule oportunidades aos contratos e consulte sua origem comercial.</p><p class="small">${sf.connected ? escape(sf.instance_url) : sf.configured ? "Pronto para conectar sua conta." : "Aguardando configuração do aplicativo pelo administrador."}</p>${canEdit() ? `<button class="button" id="connect-salesforce" ${sf.configured ? "" : "disabled"}>${sf.connected ? "Reconectar" : "Conectar Salesforce"}</button>` : ""}${sf.connected ? '<button class="button small" id="disconnect-salesforce">Desconectar</button>' : ""}<p class="small muted">Busca as 25 oportunidades mais recentes correspondentes ao nome. Não altera registros no Salesforce.</p></section><section class="card"><div class="card-top"><span class="badge">Local</span><span class="small muted">${cap.ai_enabled ? "Habilitada" : "Desativada"}</span></div><h3>Assistente com Ollama</h3><p>Resuma documentos, encontre pontos de atenção e sugira perguntas com um modelo no seu servidor.</p><div class="notice">${cap.ai_enabled ? `Modelo configurado: ${escape(cap.ai_model)}. O serviço precisa estar disponível e o modelo instalado.` : "Defina AI_ENABLED=true e o endereço do Ollama no arquivo de configuração. Baixe um modelo local antes de usar."}</div><a class="small" href="${BASE_PATH}/docs">Consultar API →</a></section><section class="card"><div class="card-top"><span class="badge">Serviço externo</span><span class="small muted">${state.docusign.connected ? "Conectado" : cap.docusign_enabled ? "Disponível" : "Aguardando configuração"}</span></div><h3>DocuSign eSignature</h3><p>Envie contratos aprovados para assinatura e receba atualizações autenticadas de status.</p><div class="notice warn">O envio compartilha o documento e os dados dos signatários com o DocuSign. Você autoriza cada envio antes de compartilhar o documento.</div><p class="small">Entre na sua conta DocuSign e autorize o acesso. A conexão será renovada automaticamente enquanto a autorização estiver válida.</p>${state.docusign.connected ? `<p><strong>${escape(state.docusign.account_name)}</strong><span class="subline">Conta padrão do DocuSign conectada</span></p><div class="inline-actions"><button class="button small" id="connect-docusign">Reconectar</button><button class="button small danger" id="disconnect-docusign">Desconectar</button></div>` : canEdit() ? `<button class="button primary" id="connect-docusign" ${cap.docusign_enabled ? "" : "disabled"}>Conectar com DocuSign ↗</button>${!cap.docusign_enabled ? '<p class="small muted">O administrador precisa habilitar a integração uma única vez nesta instalação.</p>' : ""}` : ""}</section></div><section class="panel settings-panel"><div class="panel-header"><h2>Chaves da API</h2><button class="button small" id="new-key">＋ Criar chave</button></div><div class="modal-body"><p class="small muted">As chaves herdam as permissões da sua conta e possuem validade. O segredo aparece apenas na criação.</p>${keys.map((k) => `<div class="card-bottom"><span>${escape(k.name)} <span class="small muted">· expira ${fmtDate(k.expires_at)}</span></span><button class="button small danger" data-revoke="${k.id}">Revogar</button></div>`).join("") || '<p class="small muted">Você ainda não possui chaves ativas.</p>'}</div></section>${accountSettingsHTML()}${footer()}`;
   if ($("#connect-salesforce")) $("#connect-salesforce").onclick = async () => {
     try { location.assign((await post("/integrations/salesforce/connect", {})).authorization_url); }
     catch(e) { toast(e.message); }
@@ -671,32 +676,11 @@ async function settingsPage() {
         }
       }),
   );
-  if ($("#new-user"))
-    $("#new-user").onclick = () => {
-      openModal(
-        "Adicionar pessoa",
-        "Crie uma conta para acessar esta instalação.",
-        `<form id="user-form"><label>Nome<input name="name" required maxlength="120"></label><label>E-mail<input name="email" type="email" required></label><label>Senha inicial<input name="password" type="password" minlength="12" maxlength="256" required autocomplete="new-password"><span class="field-help">Mínimo de 12 caracteres. A redefinição é feita pelo administrador no servidor.</span></label><label>Perfil<select name="role">${Object.entries(
-          roles,
-        )
-          .map(
-            ([v, l]) =>
-              `<option value="${v}" ${v === "editor" ? "selected" : ""}>${l}</option>`,
-          )
-          .join(
-            "",
-          )}</select></label><div class="error" role="alert"></div><div class="form-actions"><button class="button primary" type="submit">Criar conta</button></div></form>`,
-      );
-      bindForm("#user-form", async (data) => {
-        const user = await post("/users", Object.fromEntries(data));
-        state.users.push(user);
-        modal.close();
-        await settingsPage();
-        toast("Conta criada.");
-      });
-    };
+  await bindAccountSettings();
 }
 async function boot() {
+  authOptions = await api("/auth/options").catch(() => ({ signup_enabled: false, email_enabled: false }));
+  if (await handleAccountLink()) return;
   try {
     state.user = await api("/auth/me");
     await loadWorkspace();

@@ -1131,3 +1131,14 @@ details summary {
 @media(max-width:760px){.topbar-start{gap:6px}.topbar-start .breadcrumb{font-size:11px}.sidebar-toggle{min-width:40px}}
 
 .topbar{position:sticky;top:0;z-index:30;background:var(--bg,#fafbf8)}
+
+.organization-bar{display:flex;align-items:end;gap:16px;flex-wrap:wrap;padding:16px 36px;border-bottom:1px solid var(--line)}
+.organization-bar label{margin:0;flex:1;min-width:0;max-width:480px}
+.organization-bar select{width:100%;min-width:0;text-overflow:ellipsis}
+.auth-actions{display:flex;gap:16px;flex-wrap:wrap;margin-top:20px}
+.recovery-codes{display:grid;gap:8px;margin:20px 0}
+.recovery-codes code{padding:8px;background:var(--bg);overflow-wrap:anywhere;user-select:all}
+.invitation-row{display:flex;gap:16px;justify-content:space-between;align-items:center;padding:12px 0;overflow-wrap:anywhere}
+.invitation-row span{min-width:0}
+.breadcrumb{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:45vw}
+@media(max-width:760px){.organization-bar{padding:12px 18px;gap:10px}.organization-bar label{flex-basis:100%}.auth-actions{gap:12px}.recovery-codes code{font-size:12px}}
